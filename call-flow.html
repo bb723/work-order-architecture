@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Call Flow — Work Order Agent</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+
+    .hero {
+      text-align: center;
+      padding: 44px 20px 32px;
+      background: linear-gradient(135deg, #0f172a, #1e293b, #0f172a);
+      border-bottom: 1px solid #1e293b;
+    }
+    .hero h1 {
+      font-size: 2.2rem; font-weight: 700;
+      background: linear-gradient(135deg, #8b5cf6, #a78bfa, #c4b5fd);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .hero p { font-size: 1rem; color: #94a3b8; max-width: 600px; margin: 0 auto; line-height: 1.5; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 40px 20px 60px; }
+
+    /* ── Flow steps ── */
+    .flow { position: relative; padding-left: 48px; }
+    .flow::before {
+      content: '';
+      position: absolute;
+      left: 23px; top: 0; bottom: 0;
+      width: 2px;
+      background: linear-gradient(to bottom, #8b5cf6, #3b82f6, #10b981, #ef4444, #f59e0b, #64748b);
+    }
+
+    .step {
+      position: relative;
+      margin-bottom: 0;
+      padding-bottom: 32px;
+    }
+    .step:last-child { padding-bottom: 0; }
+    .step:last-child::after { display: none; }
+
+    .step-dot {
+      position: absolute;
+      left: -48px; top: 0;
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      border: 3px solid;
+      z-index: 2;
+      background: #0f172a;
+    }
+
+    .step-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-left: 16px;
+      transition: border-color .2s;
+    }
+    .step-card:hover { border-color: #475569; }
+
+    .step-card h3 {
+      font-size: 1.05rem; font-weight: 600; color: #f1f5f9;
+      margin-bottom: 4px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .step-card .file {
+      font-family: 'Fira Code', monospace;
+      font-size: .72rem; color: #60a5fa;
+      background: #0f172a; padding: 2px 8px; border-radius: 4px;
+    }
+    .step-card .desc {
+      font-size: .88rem; color: #94a3b8; line-height: 1.55; margin-bottom: 10px;
+    }
+    .step-card .code-block {
+      font-family: 'Fira Code', monospace;
+      font-size: .78rem; color: #c4b5fd;
+      background: #0f172a;
+      padding: 14px 16px; border-radius: 10px;
+      white-space: pre-wrap; line-height: 1.5;
+      border: 1px solid #1e293b;
+    }
+    .step-card .code-block .comment { color: #4b5563; }
+    .step-card .code-block .highlight { color: #34d399; }
+    .step-card .code-block .warn { color: #fbbf24; }
+    .step-card .code-block .danger { color: #f87171; }
+
+    /* ── Branch ── */
+    .branch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 12px;
+    }
+    .branch-card {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .branch-card h4 {
+      font-size: .85rem; font-weight: 600; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .branch-card p { font-size: .8rem; color: #94a3b8; line-height: 1.45; }
+    .branch-card.yes { border-color: #10b981; }
+    .branch-card.yes h4 { color: #34d399; }
+    .branch-card.no { border-color: #64748b; }
+    .branch-card.no h4 { color: #94a3b8; }
+    .branch-card.emergency { border-color: #ef4444; }
+    .branch-card.emergency h4 { color: #f87171; }
+
+    /* ── Arrow connector ── */
+    .arrow {
+      text-align: center;
+      color: #475569;
+      font-size: 1.2rem;
+      padding: 4px 0;
+      margin-left: 16px;
+    }
+
+    /* ── Tags ── */
+    .tag {
+      display: inline-block;
+      font-size: .68rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 4px;
+      margin-right: 4px;
+    }
+    .tag-twilio { background: #1e1b4b; color: #a78bfa; }
+    .tag-11labs { background: #1a1a2e; color: #818cf8; }
+    .tag-backend { background: #0c1a0e; color: #34d399; }
+    .tag-db { background: #1a1509; color: #fbbf24; }
+    .tag-emergency { background: #1f0a0a; color: #f87171; }
+
+    /* ── Gaps section ── */
+    .gaps {
+      margin-top: 50px;
+      padding: 28px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 14px;
+    }
+    .gaps h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 14px; color: #fbbf24; }
+    .gap-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid #293548;
+      font-size: .88rem; color: #cbd5e1; line-height: 1.45;
+    }
+    .gap-item:last-child { border-bottom: none; }
+    .gap-num {
+      flex-shrink: 0;
+      width: 24px; height: 24px;
+      border-radius: 50%; background: #78350f; color: #fbbf24;
+      font-size: .72rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    footer {
+      text-align: center; padding: 32px 20px; color: #475569;
+      font-size: .78rem; border-top: 1px solid #1e293b; margin-top: 40px;
+    }
+    footer a { color: #60a5fa; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 1.6rem; }
+      .branch { grid-template-columns: 1fr; }
+      .flow { padding-left: 40px; }
+      .step-dot { left: -40px; width: 40px; height: 40px; font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Voice Call Flow</h1>
+  <p>What happens from the moment a tenant dials the Twilio number to ticket creation, emergency escalation, and beyond.</p>
+</div>
+
+<div class="container">
+<div class="flow">
+
+  <!-- Step 1 -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #8b5cf6;">📞</div>
+    <div class="step-card">
+      <h3>Tenant Calls <span class="tag tag-twilio">Twilio</span></h3>
+      <p class="desc">Tenant dials the Twilio number <strong>+1 (207) 406-9385</strong>. Twilio receives the call and fires a webhook to your backend with the caller's phone number.</p>
+      <div class="code-block"><span class="comment">// Twilio fires webhook</span>
+POST /api/twilio/voice
+Form data: { From: "+12075551234", To: "+12074069385" }</div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #a78bfa;">&#9881;</div>
+    <div class="step-card">
+      <h3>handle_incoming_call() <span class="file">twilio_webhooks.py:46</span></h3>
+      <p class="desc">Backend checks if ElevenLabs is configured. If the agent ID is missing or set to "placeholder", the caller gets a fallback message.</p>
+      <div class="branch">
+        <div class="branch-card no">
+          <h4>&#10005; Not configured</h4>
+          <p>Caller hears: <em>"Our automated system is currently being set up. Please text this number with your maintenance request."</em></p>
+        </div>
+        <div class="branch-card yes">
+          <h4>&#10003; Configured</h4>
+          <p>Proceeds to register the call with ElevenLabs API.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #818cf8;">&#9729;</div>
+    <div class="step-card">
+      <h3>ElevenLabs Register-Call <span class="tag tag-11labs">ElevenLabs</span> <span class="tag tag-backend">Backend</span></h3>
+      <p class="desc">Backend makes an outbound API call to ElevenLabs to register this phone call. ElevenLabs returns TwiML that tells Twilio to connect the audio stream to their WebRTC servers.</p>
+      <div class="code-block">POST https://api.elevenlabs.io/v1/convai/twilio/register-call
+{
+  <span class="highlight">"agent_id"</span>: "agent_6101kjt3qgzpfd1vq3kwgm1a68d4",
+  "from_number": "+12075551234",
+  "to_number":   "+12074069385",
+  "direction":   "inbound"
+}
+
+<span class="comment">// Returns TwiML → Twilio connects audio to ElevenLabs</span></div>
+      <div class="branch" style="margin-top: 12px;">
+        <div class="branch-card no">
+          <h4>&#10005; API fails</h4>
+          <p>Caller hears: <em>"We are experiencing a temporary issue. Please text this number..."</em></p>
+        </div>
+        <div class="branch-card yes">
+          <h4>&#10003; Success</h4>
+          <p>Caller is now live-connected to the ElevenLabs voice AI agent.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #60a5fa;">&#128483;</div>
+    <div class="step-card">
+      <h3>Voice AI Conversation <span class="tag tag-11labs">ElevenLabs Agent</span></h3>
+      <p class="desc">The ElevenLabs agent (configured in their dashboard) speaks to the tenant in natural language. It gathers:</p>
+      <div class="code-block"><span class="highlight">Agent gathers:</span>
+  - Tenant name
+  - Property name (can verify via lookup_property tool)
+  - Unit number
+  - Description of the issue
+  - Urgency assessment
+
+<span class="comment">The agent has 3 server tools it can call back to your API:</span>
+  1. POST /api/tools/lookup_property
+  2. POST /api/tools/create_ticket
+  3. POST /api/tools/escalate_emergency</div>
+    </div>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #3b82f6;">&#128269;</div>
+    <div class="step-card">
+      <h3>Tool: lookup_property <span class="file">elevenlabs_tools.py:89</span> <span class="tag tag-db">Database</span></h3>
+      <p class="desc">Agent verifies the property exists in your system. Case-insensitive search. If found, agent can confirm address with the caller.</p>
+      <div class="code-block">POST /api/tools/lookup_property
+{ "property_name": "Oak Apartments" }
+
+<span class="comment">// DB: Property.name ILIKE '%Oak Apartments%'</span>
+
+<span class="highlight">Found →</span> { found: true, name, address, manager_name, manager_phone }
+<span class="warn">Not found →</span> { found: false, message: "Property not found" }</div>
+    </div>
+  </div>
+
+  <!-- Step 6 -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #10b981;">&#127915;</div>
+    <div class="step-card">
+      <h3>Tool: create_ticket <span class="file">elevenlabs_tools.py:43</span> <span class="tag tag-db">Database</span></h3>
+      <p class="desc">When the agent has enough info, it calls create_ticket. This creates a Ticket record with <code>channel = "phone"</code> and auto-assesses urgency if not provided.</p>
+      <div class="code-block">POST /api/tools/create_ticket
+{
+  "tenant_name":   "John Smith",
+  "tenant_phone":  "+12075551234",
+  "unit_number":   "3B",
+  "property_name": "Oak Apartments",
+  "description":   "Water dripping from ceiling in bathroom",
+  "category":      "plumbing",
+  "urgency":       "high"
+}
+
+<span class="comment">// → create_ticket_from_conversation()</span>
+<span class="comment">// → Validates enums, auto-assesses urgency if missing</span>
+<span class="comment">// → Creates Ticket(status=open, channel=phone)</span></div>
+    </div>
+  </div>
+
+  <!-- Step 7: Urgency Assessment -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #f59e0b;">&#9888;</div>
+    <div class="step-card">
+      <h3>Urgency Auto-Assessment <span class="file">ticket_service.py:26</span></h3>
+      <p class="desc">If the ElevenLabs agent doesn't set urgency (or sends an invalid value), the backend scans the description for keywords. Maine-specific: HVAC issues default to HIGH.</p>
+      <div class="code-block"><span class="danger">EMERGENCY keywords:</span>
+  "no heat", "burst pipe", "flooding", "gas leak",
+  "fire", "smoke", "carbon monoxide", "sewage",
+  "roof collapse", "exposed wire"
+
+<span class="warn">HIGH keywords:</span>
+  "no hot water", "major leak", "power out",
+  "fridge not working", "outlet sparking"
+
+<span class="highlight">Special rule:</span>
+  category == HVAC → at least HIGH (Maine winters)</div>
+    </div>
+  </div>
+
+  <!-- Step 8: Emergency branch -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #ef4444;">&#128680;</div>
+    <div class="step-card">
+      <h3>Emergency Check <span class="file">emergency.py:51</span> <span class="tag tag-emergency">Emergency</span></h3>
+      <p class="desc">Right after ticket creation, if urgency is "emergency", the system checks whether an emergency call has already been dispatched for this ticket.</p>
+      <div class="branch">
+        <div class="branch-card emergency">
+          <h4>&#128680; urgency == EMERGENCY</h4>
+          <p><code>check_and_escalate(ticket, db)</code><br>If not already dispatched → triggers outbound call to property manager.</p>
+        </div>
+        <div class="branch-card yes">
+          <h4>&#10003; Not emergency</h4>
+          <p>No escalation. Returns success response to ElevenLabs agent. Ticket sits in dashboard waiting for assignment.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 9: Emergency call -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #dc2626;">&#128222;</div>
+    <div class="step-card">
+      <h3>Outbound Emergency Call <span class="file">emergency.py:11</span> <span class="tag tag-twilio">Twilio</span> <span class="tag tag-emergency">Emergency</span></h3>
+      <p class="desc">Twilio places an outbound call to the property manager's emergency number. An automated voice reads the emergency details twice (Polly.Joanna voice).</p>
+      <div class="code-block"><span class="danger">Twilio calls: +1 (207) 314-8021</span>
+<span class="danger">From: +1 (207) 406-9385</span>
+
+<span class="comment">// Manager hears (loops 2x):</span>
+"Emergency work order alert.
+ Tenant <span class="highlight">John Smith</span>
+ at <span class="highlight">Oak Apartments</span>, unit <span class="highlight">3B</span>.
+ Issue: <span class="highlight">Water dripping from ceiling</span>.
+ This is an emergency that requires
+ immediate attention.
+ Ticket number <span class="highlight">42</span>."
+
+<span class="comment">// ticket.emergency_dispatched = True</span></div>
+    </div>
+  </div>
+
+  <!-- Step 10: Response back -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #10b981;">&#9989;</div>
+    <div class="step-card">
+      <h3>Response to Voice Agent <span class="tag tag-11labs">ElevenLabs</span></h3>
+      <p class="desc">The create_ticket tool returns a JSON response. The ElevenLabs agent uses this to confirm to the caller that their ticket has been created.</p>
+      <div class="code-block"><span class="comment">// Backend returns to ElevenLabs agent:</span>
+{
+  "success": true,
+  "ticket_id": 42,
+  "urgency": "high",
+  "status": "open",
+  "emergency_dispatched": false,
+  "message": "Work order #42 has been created."
+}
+
+<span class="comment">// Agent tells caller:</span>
+<span class="highlight">"I've created work order number 42 for you.</span>
+<span class="highlight"> Someone will be in touch to schedule the repair."</span></div>
+    </div>
+  </div>
+
+  <!-- Step 11: Call ends -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #64748b;">&#128532;</div>
+    <div class="step-card">
+      <h3>Call Ends <span class="file">twilio_webhooks.py:98</span> <span class="tag tag-twilio">Twilio</span></h3>
+      <p class="desc">When the call disconnects, Twilio fires a status callback. Currently this is just logged — no further action.</p>
+      <div class="code-block">POST /api/twilio/voice/status
+{ CallSid: "CA...", CallStatus: "completed" }
+
+<span class="comment">// → Just logs: "Call CA... status: completed"</span></div>
+    </div>
+  </div>
+
+  <!-- Step 12: What happens next -->
+  <div class="step">
+    <div class="step-dot" style="border-color: #3b82f6;">&#128640;</div>
+    <div class="step-card">
+      <h3>What Happens Next</h3>
+      <p class="desc">The ticket is now in the system. From here, the rest of the pipeline kicks in:</p>
+      <div class="code-block"><span class="highlight">1. Dashboard</span> — Ticket appears as "open" in web UI
+   Manager sees it in ticket list + stats
+
+<span class="highlight">2. Assignment Agent</span> — Manager chats with AI
+   "Assign open tickets" → AI matches skills
+   → Creates Assignment with AM/PM time block
+   → SMS sent to employee with job details
+
+<span class="highlight">3. Follow-Up</span> — Scheduler fires at noon/5pm
+   → SMS to employee: "Did you finish?"
+   → Employee replies with photos (MMS)
+
+<span class="highlight">4. Feedback</span> — Tenant gets satisfaction survey
+   → Claude Haiku analyzes: score 1-5
+   → Ticket marked RESOLVED</div>
+    </div>
+  </div>
+
+</div><!-- /flow -->
+
+<!-- ── Gaps ── -->
+<div class="gaps">
+  <h2>Current Gaps &amp; Improvement Opportunities</h2>
+  <div class="gap-item">
+    <span class="gap-num">1</span>
+    <div><strong>No caller phone capture guarantee</strong> — The caller's phone number is passed to ElevenLabs via register-call, but the voice agent must explicitly pass it back as <code>tenant_phone</code> in the create_ticket tool call. If the agent doesn't, the ticket has no phone for follow-up SMS.</div>
+  </div>
+  <div class="gap-item">
+    <span class="gap-num">2</span>
+    <div><strong>No conversation transcript</strong> — Unlike SMS (saved to Conversation model), voice calls don't persist what was said. There's no record of the AI-tenant conversation.</div>
+  </div>
+  <div class="gap-item">
+    <span class="gap-num">3</span>
+    <div><strong>No dropped call handling</strong> — The <code>/voice/status</code> endpoint just logs. Could detect "failed" or "no-answer" and trigger a follow-up SMS to the caller.</div>
+  </div>
+  <div class="gap-item">
+    <span class="gap-num">4</span>
+    <div><strong>ElevenLabs config is external</strong> — The agent's personality, prompt, and tool schemas live in the ElevenLabs dashboard, not in code. If misconfigured, it won't gather the right info or call the right tools.</div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<footer>
+  <a href="/architecture.html">&#8592; Back to Architecture Overview</a> &nbsp;&middot;&nbsp; Work Order Agent &mdash; Voice Call Flow
+</footer>
+
+</body>
+</html>
