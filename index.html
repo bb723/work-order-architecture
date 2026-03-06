@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Work Order Agent — How It Works</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 60px 20px 40px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      border-bottom: 1px solid #1e293b;
+    }
+    .hero h1 {
+      font-size: 2.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+    }
+    .hero p {
+      font-size: 1.15rem;
+      color: #94a3b8;
+      max-width: 640px;
+      margin: 0 auto 28px;
+      line-height: 1.6;
+    }
+    .hero-hint {
+      display: inline-block;
+      font-size: 0.85rem;
+      color: #64748b;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      padding: 6px 18px;
+    }
+
+    /* ── Tree container ── */
+    #tree-container {
+      width: 100%;
+      overflow: auto;
+    }
+    #tree-container svg {
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* ── D3 styles ── */
+    .node-group { cursor: pointer; }
+    .node-circle {
+      stroke-width: 2.5px;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
+      transition: r .25s ease;
+    }
+    .node-group:hover .node-circle { filter: drop-shadow(0 4px 14px rgba(96,165,250,.4)); }
+    .node-label {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 600;
+      fill: #f1f5f9;
+      pointer-events: none;
+    }
+    .node-desc {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 400;
+      fill: #94a3b8;
+      pointer-events: none;
+    }
+    .link {
+      fill: none;
+      stroke: #334155;
+      stroke-width: 2;
+    }
+    .collapse-icon {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 700;
+      fill: #fff;
+      pointer-events: none;
+      text-anchor: middle;
+      dominant-baseline: central;
+      font-size: 14px;
+    }
+
+    /* ── Flow section ── */
+    .flow-section {
+      max-width: 1100px;
+      margin: 60px auto;
+      padding: 0 24px;
+    }
+    .flow-section h2 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #f1f5f9;
+    }
+    .flow-section .subtitle {
+      color: #94a3b8;
+      margin-bottom: 36px;
+      font-size: 1.05rem;
+    }
+
+    /* ── Flow cards ── */
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+    .flow-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+      transition: transform .2s, border-color .2s;
+    }
+    .flow-card:hover {
+      transform: translateY(-3px);
+      border-color: #475569;
+    }
+    .flow-card .accent {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      border-radius: 16px 16px 0 0;
+    }
+    .flow-card .icon {
+      font-size: 2rem;
+      margin-bottom: 14px;
+      display: inline-block;
+    }
+    .flow-card h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #f1f5f9;
+    }
+    .flow-card p {
+      color: #94a3b8;
+      font-size: .93rem;
+      line-height: 1.55;
+    }
+
+    /* ── Step list ── */
+    .steps {
+      list-style: none;
+      margin-top: 16px;
+      padding: 0;
+    }
+    .steps li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: .88rem;
+      color: #cbd5e1;
+      line-height: 1.45;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-size: .72rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      margin-top: 1px;
+    }
+
+    /* ── Lifecycle ── */
+    .lifecycle {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 0;
+      margin: 36px 0;
+    }
+    .lifecycle-step {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    .lifecycle-node {
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 12px;
+      padding: 14px 20px;
+      text-align: center;
+      min-width: 110px;
+      transition: transform .2s, border-color .2s;
+    }
+    .lifecycle-node:hover {
+      transform: scale(1.06);
+      border-color: #60a5fa;
+    }
+    .lifecycle-node .lc-icon { font-size: 1.5rem; display: block; margin-bottom: 6px; }
+    .lifecycle-node .lc-label { font-size: .82rem; font-weight: 600; color: #e2e8f0; }
+    .lifecycle-arrow {
+      color: #475569;
+      font-size: 1.4rem;
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+
+    /* ── Tech stack ── */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .tech-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 22px;
+      text-align: center;
+      transition: transform .2s;
+    }
+    .tech-card:hover { transform: translateY(-2px); }
+    .tech-card .tech-icon { font-size: 2rem; margin-bottom: 10px; }
+    .tech-card h4 { font-size: 1rem; font-weight: 600; margin-bottom: 4px; color: #f1f5f9; }
+    .tech-card p { font-size: .82rem; color: #94a3b8; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      color: #475569;
+      font-size: .82rem;
+      border-top: 1px solid #1e293b;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .hero h1 { font-size: 1.8rem; }
+      .lifecycle-node { min-width: 80px; padding: 10px 12px; }
+      .lifecycle-node .lc-label { font-size: .72rem; }
+      .lifecycle-arrow { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<div class="hero">
+  <h1>Work Order Agent</h1>
+  <p>An AI-powered property maintenance system that takes requests from tenants, intelligently assigns work to employees, and tracks everything through completion.</p>
+  <span class="hero-hint">Click any node below to expand &amp; explore</span>
+</div>
+
+<!-- ═══════════════ INTERACTIVE TREE ═══════════════ -->
+<div id="tree-container"></div>
+
+<!-- ═══════════════ LIFECYCLE ═══════════════ -->
+<div class="flow-section">
+  <h2>Work Order Lifecycle</h2>
+  <p class="subtitle">Every maintenance request follows this journey from report to resolution.</p>
+  <div class="lifecycle">
+    <div class="lifecycle-step">
+      <div class="lifecycle-node"><span class="lc-icon">📱</span><span class="lc-label">Tenant Reports</span></div>
+      <span class="lifecycle-arrow">→</span>
+    </div>
+    <div class="lifecycle-step">
+      <div class="lifecycle-node"><span class="lc-icon">🤖</span><span class="lc-label">AI Intake</span></div>
+      <span class="lifecycle-arrow">→</span>
+    </div>
+    <div class="lifecycle-step">
+      <div class="lifecycle-node"><span class="lc-icon">🎫</span><span class="lc-label">Ticket Created</span></div>
+      <span class="lifecycle-arrow">→</span>
+    </div>
+    <div class="lifecycle-step">
+      <div class="lifecycle-node"><span class="lc-icon">🧠</span><span class="lc-label">Smart Assign</span></div>
+      <span class="lifecycle-arrow">→</span>
+    </div>
+    <div class="lifecycle-step">
+      <div class="lifecycle-node"><span class="lc-icon">📋</span><span class="lc-label">Scheduled</span></div>
+      <span class="lifecycle-arrow">→</span>
+    </div>
+    <div class="lifecycle-step">
+      <div class="lifecycle-node"><span class="lc-icon">🔧</span><span class="lc-label">Work Done</span></div>
+      <span class="lifecycle-arrow">→</span>
+    </div>
+    <div class="lifecycle-step">
+      <div class="lifecycle-node"><span class="lc-icon">⭐</span><span class="lc-label">Feedback</span></div>
+      <span class="lifecycle-arrow">→</span>
+    </div>
+    <div class="lifecycle-step">
+      <div class="lifecycle-node"><span class="lc-icon">✅</span><span class="lc-label">Resolved</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ DETAILED FLOWS ═══════════════ -->
+<div class="flow-section">
+  <h2>How Each Channel Works</h2>
+  <p class="subtitle">Tenants can reach out via text, phone call, or the web — each triggers a different AI-powered flow.</p>
+
+  <div class="flow-grid">
+    <!-- SMS -->
+    <div class="flow-card">
+      <div class="accent" style="background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div>
+      <span class="icon">💬</span>
+      <h3>SMS Intake</h3>
+      <p>Tenants text their issue. Claude AI has a natural conversation to gather details, then creates a work order automatically.</p>
+      <ol class="steps">
+        <li><span class="step-num" style="background:#3b82f6">1</span>Tenant sends a text message</li>
+        <li><span class="step-num" style="background:#3b82f6">2</span>Twilio delivers it to our backend</li>
+        <li><span class="step-num" style="background:#3b82f6">3</span>Claude AI chats back to gather info — name, location, what's wrong</li>
+        <li><span class="step-num" style="background:#3b82f6">4</span>AI assesses urgency (emergency = instant escalation)</li>
+        <li><span class="step-num" style="background:#3b82f6">5</span>Ticket created and tenant gets confirmation</li>
+      </ol>
+    </div>
+
+    <!-- Voice -->
+    <div class="flow-card">
+      <div class="accent" style="background: linear-gradient(90deg, #8b5cf6, #a78bfa);"></div>
+      <span class="icon">📞</span>
+      <h3>Voice Intake</h3>
+      <p>Tenants call and speak to an ElevenLabs AI voice agent that listens, asks questions, and files the ticket — no hold music needed.</p>
+      <ol class="steps">
+        <li><span class="step-num" style="background:#8b5cf6">1</span>Tenant calls the property number</li>
+        <li><span class="step-num" style="background:#8b5cf6">2</span>Twilio connects to ElevenLabs voice AI</li>
+        <li><span class="step-num" style="background:#8b5cf6">3</span>AI agent has a real conversation with the tenant</li>
+        <li><span class="step-num" style="background:#8b5cf6">4</span>Agent files the ticket via backend tools</li>
+        <li><span class="step-num" style="background:#8b5cf6">5</span>Tenant gets spoken confirmation on the call</li>
+      </ol>
+    </div>
+
+    <!-- Assignment -->
+    <div class="flow-card">
+      <div class="accent" style="background: linear-gradient(90deg, #10b981, #34d399);"></div>
+      <span class="icon">🧠</span>
+      <h3>Smart Assignment</h3>
+      <p>A manager chats with the AI agent to assign work orders. It considers employee skills, workload, availability, and urgency.</p>
+      <ol class="steps">
+        <li><span class="step-num" style="background:#10b981">1</span>Manager asks the AI to assign open tickets</li>
+        <li><span class="step-num" style="background:#10b981">2</span>AI checks skills, workloads, and schedules</li>
+        <li><span class="step-num" style="background:#10b981">3</span>Suggests best-fit employees with reasoning</li>
+        <li><span class="step-num" style="background:#10b981">4</span>Manager can correct — AI learns from feedback</li>
+        <li><span class="step-num" style="background:#10b981">5</span>Employee gets an SMS with assignment details</li>
+      </ol>
+    </div>
+
+    <!-- Completion -->
+    <div class="flow-card">
+      <div class="accent" style="background: linear-gradient(90deg, #f59e0b, #fbbf24);"></div>
+      <span class="icon">📸</span>
+      <h3>Completion & Feedback</h3>
+      <p>After the time block ends, employees get a follow-up text. They reply with photos, then tenants rate the work.</p>
+      <ol class="steps">
+        <li><span class="step-num" style="background:#f59e0b">1</span>Scheduler sends follow-up at noon or 5 PM</li>
+        <li><span class="step-num" style="background:#f59e0b">2</span>Employee replies with photos via MMS</li>
+        <li><span class="step-num" style="background:#f59e0b">3</span>Work marked complete, tenant surveyed</li>
+        <li><span class="step-num" style="background:#f59e0b">4</span>AI analyzes feedback for sentiment &amp; score</li>
+        <li><span class="step-num" style="background:#f59e0b">5</span>Full audit trail stored for every step</li>
+      </ol>
+    </div>
+
+    <!-- Emergency -->
+    <div class="flow-card">
+      <div class="accent" style="background: linear-gradient(90deg, #ef4444, #f87171);"></div>
+      <span class="icon">🚨</span>
+      <h3>Emergency Escalation</h3>
+      <p>When the AI detects an emergency (burst pipe, no heat in Maine winter, gas leak), it immediately calls the property manager.</p>
+      <ol class="steps">
+        <li><span class="step-num" style="background:#ef4444">1</span>AI detects emergency urgency</li>
+        <li><span class="step-num" style="background:#ef4444">2</span>Ticket created with emergency flag</li>
+        <li><span class="step-num" style="background:#ef4444">3</span>Twilio places outbound call to property manager</li>
+        <li><span class="step-num" style="background:#ef4444">4</span>Automated voice announces the emergency details</li>
+        <li><span class="step-num" style="background:#ef4444">5</span>Manager can respond immediately</li>
+      </ol>
+    </div>
+
+    <!-- Web UI -->
+    <div class="flow-card">
+      <div class="accent" style="background: linear-gradient(90deg, #06b6d4, #22d3ee);"></div>
+      <span class="icon">🖥️</span>
+      <h3>Management Dashboard</h3>
+      <p>The web app gives managers a live view of all tickets, employees, schedules, and the AI chat interface — all in one place.</p>
+      <ol class="steps">
+        <li><span class="step-num" style="background:#06b6d4">1</span>Dashboard: live ticket stats, filters, search</li>
+        <li><span class="step-num" style="background:#06b6d4">2</span>Employees: manage team &amp; set skill levels</li>
+        <li><span class="step-num" style="background:#06b6d4">3</span>Schedule: weekly/daily calendar of assignments</li>
+        <li><span class="step-num" style="background:#06b6d4">4</span>Agent Chat: talk to AI for smart assignments</li>
+        <li><span class="step-num" style="background:#06b6d4">5</span>Settings: manage properties &amp; contacts</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ AI LEARNING ═══════════════ -->
+<div class="flow-section">
+  <h2>The AI Learning Loop</h2>
+  <p class="subtitle">The assignment agent gets smarter over time as managers provide feedback on employee skills.</p>
+
+  <div class="flow-grid" style="grid-template-columns: 1fr;">
+    <div class="flow-card" style="max-width: 800px; margin: 0 auto; width: 100%;">
+      <div class="accent" style="background: linear-gradient(90deg, #a78bfa, #f472b6);"></div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; text-align: center; padding-top: 12px;">
+        <div>
+          <div style="font-size: 2.2rem; margin-bottom: 8px;">📊</div>
+          <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">AI Suggests</div>
+          <div style="font-size: .85rem; color: #94a3b8;">"Assign plumbing to John — he's an expert with low workload"</div>
+        </div>
+        <div>
+          <div style="font-size: 2.2rem; margin-bottom: 8px;">💬</div>
+          <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Manager Corrects</div>
+          <div style="font-size: .85rem; color: #94a3b8;">"Actually, Sarah just got certified in plumbing — use her"</div>
+        </div>
+        <div>
+          <div style="font-size: 2.2rem; margin-bottom: 8px;">🧠</div>
+          <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">AI Learns</div>
+          <div style="font-size: .85rem; color: #94a3b8;">Updates Sarah's plumbing skill to "expert" with audit trail</div>
+        </div>
+        <div>
+          <div style="font-size: 2.2rem; margin-bottom: 8px;">🔄</div>
+          <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Better Next Time</div>
+          <div style="font-size: .85rem; color: #94a3b8;">Future suggestions use updated skill data automatically</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TECH STACK ═══════════════ -->
+<div class="flow-section">
+  <h2>Technology Stack</h2>
+  <p class="subtitle">The building blocks that make it all work together.</p>
+  <div class="tech-grid">
+    <div class="tech-card">
+      <div class="tech-icon">⚡</div>
+      <h4>FastAPI + Python</h4>
+      <p>Backend API server handling all business logic, webhooks, and database operations</p>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">⚛️</div>
+      <h4>React + Vite</h4>
+      <p>Fast, modern frontend with Tailwind CSS for the management dashboard</p>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">🧠</div>
+      <h4>Claude AI (Anthropic)</h4>
+      <p>Powers SMS conversations, assignment intelligence, and feedback analysis</p>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">🗣️</div>
+      <h4>ElevenLabs</h4>
+      <p>Conversational voice AI for natural phone-based intake</p>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">📡</div>
+      <h4>Twilio</h4>
+      <p>SMS messaging, voice calls, MMS photo handling, and emergency dispatch</p>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">🗄️</div>
+      <h4>SQLite + SQLAlchemy</h4>
+      <p>Local database storing tickets, employees, assignments, and conversation history</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Work Order Agent — AI-Powered Property Maintenance
+</footer>
+
+<!-- ═══════════════ D3 INTERACTIVE TREE ═══════════════ -->
+<script>
+const treeData = {
+  name: "Work Order Agent",
+  desc: "AI-Powered Maintenance System",
+  color: "#60a5fa",
+  children: [
+    {
+      name: "Tenant Channels",
+      desc: "How tenants report issues",
+      color: "#3b82f6",
+      children: [
+        {
+          name: "SMS (Text)",
+          desc: "Claude AI conversation",
+          color: "#3b82f6",
+          children: [
+            { name: "Twilio Webhook", desc: "Receives incoming texts", color: "#60a5fa" },
+            { name: "Claude Sonnet", desc: "Multi-turn chat agent", color: "#60a5fa" },
+            { name: "Ticket Creation", desc: "Auto-creates work order", color: "#60a5fa" },
+            { name: "Emergency Check", desc: "Auto-escalates if urgent", color: "#ef4444" }
+          ]
+        },
+        {
+          name: "Phone Call",
+          desc: "ElevenLabs voice agent",
+          color: "#8b5cf6",
+          children: [
+            { name: "Twilio Voice", desc: "Routes call to AI", color: "#a78bfa" },
+            { name: "ElevenLabs Agent", desc: "Natural voice conversation", color: "#a78bfa" },
+            { name: "Tool Callbacks", desc: "Creates ticket via API", color: "#a78bfa" }
+          ]
+        },
+        {
+          name: "Web Form",
+          desc: "Manual entry by staff",
+          color: "#06b6d4",
+          children: [
+            { name: "Dashboard", desc: "Ticket creation form", color: "#22d3ee" },
+            { name: "Direct to DB", desc: "No AI needed", color: "#22d3ee" }
+          ]
+        }
+      ]
+    },
+    {
+      name: "AI Assignment",
+      desc: "Smart work distribution",
+      color: "#10b981",
+      children: [
+        {
+          name: "Chat Interface",
+          desc: "Manager talks to AI",
+          color: "#10b981",
+          children: [
+            { name: "Ask Questions", desc: "\"What needs assignment?\"", color: "#34d399" },
+            { name: "Get Suggestions", desc: "AI reasons about best fit", color: "#34d399" },
+            { name: "Give Feedback", desc: "Correct AI's suggestions", color: "#34d399" }
+          ]
+        },
+        {
+          name: "Skill Matching",
+          desc: "Right person for the job",
+          color: "#10b981",
+          children: [
+            { name: "9 Categories", desc: "Plumbing, HVAC, electrical...", color: "#34d399" },
+            { name: "4 Skill Levels", desc: "None → Beginner → Competent → Expert", color: "#34d399" },
+            { name: "Workload Check", desc: "Don't overload anyone", color: "#34d399" }
+          ]
+        },
+        {
+          name: "Scheduling",
+          desc: "Time blocks & availability",
+          color: "#10b981",
+          children: [
+            { name: "AM Block", desc: "8:00 AM – 12:00 PM", color: "#34d399" },
+            { name: "PM Block", desc: "1:00 PM – 5:00 PM", color: "#34d399" },
+            { name: "Conflict Check", desc: "No double-booking", color: "#34d399" }
+          ]
+        }
+      ]
+    },
+    {
+      name: "Completion Flow",
+      desc: "Tracking & quality",
+      color: "#f59e0b",
+      children: [
+        {
+          name: "Follow-Up",
+          desc: "Automated check-ins",
+          color: "#f59e0b",
+          children: [
+            { name: "Auto Scheduler", desc: "Triggers at noon & 5 PM", color: "#fbbf24" },
+            { name: "SMS to Employee", desc: "\"Did you finish the work?\"", color: "#fbbf24" }
+          ]
+        },
+        {
+          name: "Employee Response",
+          desc: "Completion + photos",
+          color: "#f59e0b",
+          children: [
+            { name: "Text Confirmation", desc: "Employee replies done", color: "#fbbf24" },
+            { name: "MMS Photos", desc: "Before/after proof", color: "#fbbf24" },
+            { name: "Auto-Resolve", desc: "Marks ticket complete", color: "#fbbf24" }
+          ]
+        },
+        {
+          name: "Tenant Feedback",
+          desc: "Quality assurance",
+          color: "#f59e0b",
+          children: [
+            { name: "Survey SMS", desc: "Sent to tenant after work", color: "#fbbf24" },
+            { name: "AI Analysis", desc: "Claude Haiku scores 1-5", color: "#fbbf24" },
+            { name: "Audit Trail", desc: "Everything is recorded", color: "#fbbf24" }
+          ]
+        }
+      ]
+    },
+    {
+      name: "Emergency System",
+      desc: "Instant escalation",
+      color: "#ef4444",
+      children: [
+        { name: "Auto-Detection", desc: "AI flags emergencies", color: "#f87171" },
+        { name: "Outbound Call", desc: "Twilio calls property manager", color: "#f87171" },
+        { name: "Voice Announcement", desc: "Reads details to manager", color: "#f87171" },
+        { name: "Dashboard Alert", desc: "Red flag on web UI", color: "#f87171" }
+      ]
+    },
+    {
+      name: "Management UI",
+      desc: "Web dashboard for managers",
+      color: "#a78bfa",
+      children: [
+        { name: "Dashboard", desc: "Stats, filters, ticket list", color: "#c4b5fd" },
+        { name: "Employees", desc: "Team & skill management", color: "#c4b5fd" },
+        { name: "Schedule", desc: "Weekly/daily calendar view", color: "#c4b5fd" },
+        { name: "Agent Chat", desc: "AI assignment interface", color: "#c4b5fd" },
+        { name: "Settings", desc: "Properties & contacts", color: "#c4b5fd" }
+      ]
+    }
+  ]
+};
+
+// ── Build the tree ──
+const margin = { top: 40, right: 120, bottom: 40, left: 120 };
+const nodeW = 180;
+const nodeH = 80;
+
+const container = d3.select("#tree-container");
+const width = Math.max(1200, window.innerWidth);
+const svgHeight = 820;
+
+const svg = container.append("svg")
+  .attr("width", width)
+  .attr("height", svgHeight);
+
+const g = svg.append("g")
+  .attr("transform", `translate(${width / 2}, ${margin.top + 30})`);
+
+const root = d3.hierarchy(treeData);
+root.x0 = 0;
+root.y0 = 0;
+
+// Collapse children by default (except root level)
+root.children.forEach(collapse);
+
+function collapse(d) {
+  if (d.children) {
+    d._children = d.children;
+    d._children.forEach(collapse);
+    d.children = null;
+  }
+}
+
+const treemap = d3.tree()
+  .nodeSize([nodeW + 20, nodeH + 60])
+  .separation((a, b) => a.parent === b.parent ? 1 : 1.2);
+
+let i = 0;
+const duration = 500;
+
+update(root);
+
+function update(source) {
+  const treeDataLayout = treemap(root);
+  const nodes = treeDataLayout.descendants();
+  const links = treeDataLayout.links();
+
+  // Fix depth
+  nodes.forEach(d => { d.y = d.depth * 150; });
+
+  // ── LINKS ──
+  const link = g.selectAll("path.link")
+    .data(links, d => d.target.id || (d.target.id = ++i));
+
+  const linkEnter = link.enter().insert("path", "g")
+    .attr("class", "link")
+    .attr("d", () => {
+      const o = { x: source.x0, y: source.y0 };
+      return diagonal(o, o);
+    });
+
+  const linkUpdate = linkEnter.merge(link);
+  linkUpdate.transition().duration(duration)
+    .attr("d", d => diagonal(d.source, d.target));
+
+  link.exit().transition().duration(duration)
+    .attr("d", () => {
+      const o = { x: source.x, y: source.y };
+      return diagonal(o, o);
+    })
+    .remove();
+
+  // ── NODES ──
+  const node = g.selectAll("g.node-group")
+    .data(nodes, d => d.id || (d.id = ++i));
+
+  const nodeEnter = node.enter().append("g")
+    .attr("class", "node-group")
+    .attr("transform", `translate(${source.x0},${source.y0})`)
+    .on("click", (event, d) => {
+      if (d.children) {
+        d._children = d.children;
+        d.children = null;
+      } else if (d._children) {
+        d.children = d._children;
+        d._children = null;
+      }
+      update(d);
+    });
+
+  nodeEnter.append("circle")
+    .attr("class", "node-circle")
+    .attr("r", 0)
+    .style("fill", d => d.data.color)
+    .style("stroke", d => d3.color(d.data.color).darker(0.5));
+
+  nodeEnter.append("text")
+    .attr("class", "node-label")
+    .attr("dy", -6)
+    .attr("text-anchor", "middle")
+    .text(d => d.data.name)
+    .style("font-size", d => d.depth === 0 ? "14px" : "12px");
+
+  nodeEnter.append("text")
+    .attr("class", "node-desc")
+    .attr("dy", 10)
+    .attr("text-anchor", "middle")
+    .text(d => d.data.desc)
+    .style("font-size", "10px");
+
+  // +/- indicator
+  nodeEnter.append("text")
+    .attr("class", "collapse-icon")
+    .attr("dy", 30)
+    .text(d => d._children ? `+${d._children.length}` : "");
+
+  // ── Update ──
+  const nodeUpdate = nodeEnter.merge(node);
+
+  nodeUpdate.transition().duration(duration)
+    .attr("transform", d => `translate(${d.x},${d.y})`);
+
+  nodeUpdate.select("circle.node-circle")
+    .attr("r", d => d.depth === 0 ? 28 : d._children ? 22 : 18)
+    .style("fill", d => d.data.color)
+    .style("stroke", d => d3.color(d.data.color).darker(0.5));
+
+  nodeUpdate.select(".collapse-icon")
+    .text(d => d._children ? `+${d._children.length}` : "");
+
+  // ── Exit ──
+  const nodeExit = node.exit().transition().duration(duration)
+    .attr("transform", `translate(${source.x},${source.y})`)
+    .remove();
+
+  nodeExit.select("circle").attr("r", 0);
+
+  // Store old positions
+  nodes.forEach(d => {
+    d.x0 = d.x;
+    d.y0 = d.y;
+  });
+
+  // Resize SVG to fit
+  const allNodes = root.descendants();
+  if (allNodes.length > 1) {
+    const xExtent = d3.extent(allNodes, d => d.x);
+    const yMax = d3.max(allNodes, d => d.y);
+    const newWidth = Math.max(1200, (xExtent[1] - xExtent[0]) + 400);
+    const newHeight = Math.max(500, yMax + 220);
+    svg.transition().duration(duration)
+      .attr("width", newWidth)
+      .attr("height", newHeight);
+    g.transition().duration(duration)
+      .attr("transform", `translate(${newWidth / 2}, ${margin.top + 30})`);
+  }
+}
+
+function diagonal(s, d) {
+  return `M ${s.x} ${s.y}
+          C ${s.x} ${(s.y + d.y) / 2},
+            ${d.x} ${(s.y + d.y) / 2},
+            ${d.x} ${d.y}`;
+}
+</script>
+</body>
+</html>
