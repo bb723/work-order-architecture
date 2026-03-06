@@ -6,7 +6,7 @@
   <title>Work Order Agent — How It Works</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -14,173 +14,290 @@
       font-family: 'Inter', system-ui, sans-serif;
       background: #0f172a;
       color: #e2e8f0;
-      overflow-x: hidden;
     }
 
     /* ── Hero ── */
     .hero {
       text-align: center;
-      padding: 60px 20px 40px;
+      padding: 50px 20px 36px;
       background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
       border-bottom: 1px solid #1e293b;
     }
     .hero h1 {
-      font-size: 2.8rem;
+      font-size: 2.6rem;
       font-weight: 700;
       background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     .hero p {
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       color: #94a3b8;
-      max-width: 640px;
-      margin: 0 auto 28px;
+      max-width: 680px;
+      margin: 0 auto 24px;
       line-height: 1.6;
     }
     .hero-hint {
       display: inline-block;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: #64748b;
       background: #1e293b;
       border: 1px solid #334155;
       border-radius: 999px;
-      padding: 6px 18px;
+      padding: 5px 16px;
     }
 
     /* ── Tree container ── */
     #tree-container {
       width: 100%;
-      overflow: auto;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 30px 0;
+      border-bottom: 1px solid #1e293b;
     }
     #tree-container svg {
       display: block;
-      margin: 0 auto;
     }
 
     /* ── D3 styles ── */
     .node-group { cursor: pointer; }
-    .node-circle {
-      stroke-width: 2.5px;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
-      transition: r .25s ease;
+    .node-rect {
+      rx: 10;
+      ry: 10;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.3));
+      transition: filter .2s;
     }
-    .node-group:hover .node-circle { filter: drop-shadow(0 4px 14px rgba(96,165,250,.4)); }
+    .node-group:hover .node-rect {
+      filter: drop-shadow(0 4px 16px rgba(96,165,250,.35));
+    }
     .node-label {
       font-family: 'Inter', system-ui, sans-serif;
       font-weight: 600;
-      fill: #f1f5f9;
+      fill: #fff;
       pointer-events: none;
+      font-size: 12px;
     }
     .node-desc {
       font-family: 'Inter', system-ui, sans-serif;
       font-weight: 400;
-      fill: #94a3b8;
+      fill: rgba(255,255,255,.7);
       pointer-events: none;
+      font-size: 10px;
     }
-    .link {
-      fill: none;
-      stroke: #334155;
-      stroke-width: 2;
+    .node-file {
+      font-family: 'Fira Code', monospace;
+      font-weight: 400;
+      fill: rgba(255,255,255,.5);
+      pointer-events: none;
+      font-size: 9px;
     }
-    .collapse-icon {
+    .node-badge {
       font-family: 'Inter', system-ui, sans-serif;
       font-weight: 700;
       fill: #fff;
       pointer-events: none;
-      text-anchor: middle;
-      dominant-baseline: central;
-      font-size: 14px;
+      font-size: 10px;
+    }
+    .link {
+      fill: none;
+      stroke: #334155;
+      stroke-width: 1.8;
     }
 
-    /* ── Flow section ── */
+    /* ── Detail panel ── */
+    #detail-panel {
+      position: fixed;
+      top: 0; right: -440px;
+      width: 420px;
+      height: 100vh;
+      background: #1e293b;
+      border-left: 1px solid #334155;
+      z-index: 100;
+      transition: right .3s ease;
+      overflow-y: auto;
+      padding: 28px;
+      box-shadow: -4px 0 30px rgba(0,0,0,.4);
+    }
+    #detail-panel.open { right: 0; }
+    #detail-panel .close-btn {
+      position: absolute;
+      top: 16px; right: 16px;
+      background: #334155;
+      border: none;
+      color: #e2e8f0;
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #detail-panel .close-btn:hover { background: #475569; }
+    #detail-panel h3 {
+      font-size: 1.2rem;
+      margin-bottom: 6px;
+      color: #f1f5f9;
+      padding-right: 40px;
+    }
+    #detail-panel .dp-subtitle {
+      font-size: .88rem;
+      color: #94a3b8;
+      margin-bottom: 18px;
+    }
+    #detail-panel .dp-section {
+      margin-bottom: 18px;
+    }
+    #detail-panel .dp-section-title {
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+    #detail-panel .dp-file {
+      font-family: 'Fira Code', monospace;
+      font-size: .8rem;
+      color: #60a5fa;
+      background: #0f172a;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+    #detail-panel .dp-text {
+      font-size: .88rem;
+      color: #cbd5e1;
+      line-height: 1.55;
+    }
+    #detail-panel .dp-code {
+      font-family: 'Fira Code', monospace;
+      font-size: .78rem;
+      color: #a78bfa;
+      background: #0f172a;
+      padding: 10px 14px;
+      border-radius: 8px;
+      display: block;
+      margin-top: 6px;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+    #detail-panel .dp-list {
+      list-style: none;
+      padding: 0;
+    }
+    #detail-panel .dp-list li {
+      font-size: .85rem;
+      color: #cbd5e1;
+      padding: 4px 0;
+      border-bottom: 1px solid #293548;
+    }
+    #detail-panel .dp-list li:last-child { border-bottom: none; }
+    .dp-tag {
+      display: inline-block;
+      font-size: .7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-right: 6px;
+    }
+
+    /* ── Sections ── */
     .flow-section {
       max-width: 1100px;
-      margin: 60px auto;
+      margin: 50px auto;
       padding: 0 24px;
     }
     .flow-section h2 {
-      font-size: 1.8rem;
+      font-size: 1.7rem;
       font-weight: 700;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       color: #f1f5f9;
     }
     .flow-section .subtitle {
       color: #94a3b8;
-      margin-bottom: 36px;
-      font-size: 1.05rem;
+      margin-bottom: 32px;
+      font-size: 1rem;
     }
 
     /* ── Flow cards ── */
     .flow-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 24px;
+      gap: 22px;
     }
     .flow-card {
       background: #1e293b;
       border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 28px;
+      border-radius: 14px;
+      padding: 24px;
       position: relative;
       overflow: hidden;
       transition: transform .2s, border-color .2s;
     }
     .flow-card:hover {
-      transform: translateY(-3px);
+      transform: translateY(-2px);
       border-color: #475569;
     }
     .flow-card .accent {
       position: absolute;
       top: 0; left: 0; right: 0;
-      height: 4px;
-      border-radius: 16px 16px 0 0;
-    }
-    .flow-card .icon {
-      font-size: 2rem;
-      margin-bottom: 14px;
-      display: inline-block;
+      height: 3px;
+      border-radius: 14px 14px 0 0;
     }
     .flow-card h3 {
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       font-weight: 600;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       color: #f1f5f9;
+    }
+    .flow-card .card-file {
+      font-family: 'Fira Code', monospace;
+      font-size: .75rem;
+      color: #60a5fa;
+      margin-bottom: 10px;
+      display: block;
     }
     .flow-card p {
       color: #94a3b8;
-      font-size: .93rem;
-      line-height: 1.55;
+      font-size: .9rem;
+      line-height: 1.5;
     }
-
-    /* ── Step list ── */
     .steps {
       list-style: none;
-      margin-top: 16px;
+      margin-top: 14px;
       padding: 0;
     }
     .steps li {
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      margin-bottom: 10px;
-      font-size: .88rem;
+      margin-bottom: 8px;
+      font-size: .85rem;
       color: #cbd5e1;
-      line-height: 1.45;
+      line-height: 1.4;
     }
     .step-num {
       flex-shrink: 0;
-      width: 22px;
-      height: 22px;
+      width: 20px; height: 20px;
       border-radius: 50%;
-      font-size: .72rem;
+      font-size: .7rem;
       font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #fff;
       margin-top: 1px;
+    }
+    .code-ref {
+      font-family: 'Fira Code', monospace;
+      font-size: .78rem;
+      color: #a78bfa;
+      background: #0f172a;
+      padding: 1px 6px;
+      border-radius: 4px;
     }
 
     /* ── Lifecycle ── */
@@ -190,490 +307,492 @@
       justify-content: center;
       align-items: center;
       gap: 0;
-      margin: 36px 0;
+      margin: 30px 0;
     }
-    .lifecycle-step {
-      display: flex;
-      align-items: center;
-      gap: 0;
-    }
+    .lifecycle-step { display: flex; align-items: center; }
     .lifecycle-node {
       background: #1e293b;
       border: 2px solid #334155;
-      border-radius: 12px;
-      padding: 14px 20px;
+      border-radius: 10px;
+      padding: 12px 18px;
       text-align: center;
-      min-width: 110px;
+      min-width: 100px;
       transition: transform .2s, border-color .2s;
     }
-    .lifecycle-node:hover {
-      transform: scale(1.06);
-      border-color: #60a5fa;
-    }
-    .lifecycle-node .lc-icon { font-size: 1.5rem; display: block; margin-bottom: 6px; }
-    .lifecycle-node .lc-label { font-size: .82rem; font-weight: 600; color: #e2e8f0; }
-    .lifecycle-arrow {
-      color: #475569;
-      font-size: 1.4rem;
-      padding: 0 4px;
-      flex-shrink: 0;
-    }
+    .lifecycle-node:hover { transform: scale(1.06); border-color: #60a5fa; }
+    .lifecycle-node .lc-icon { font-size: 1.3rem; display: block; margin-bottom: 4px; }
+    .lifecycle-node .lc-label { font-size: .78rem; font-weight: 600; color: #e2e8f0; }
+    .lifecycle-arrow { color: #475569; font-size: 1.2rem; padding: 0 3px; flex-shrink: 0; }
 
     /* ── Tech stack ── */
     .tech-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 20px;
-      margin-top: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      margin-top: 20px;
     }
     .tech-card {
       background: #1e293b;
       border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 22px;
+      border-radius: 10px;
+      padding: 20px;
       text-align: center;
       transition: transform .2s;
     }
     .tech-card:hover { transform: translateY(-2px); }
-    .tech-card .tech-icon { font-size: 2rem; margin-bottom: 10px; }
-    .tech-card h4 { font-size: 1rem; font-weight: 600; margin-bottom: 4px; color: #f1f5f9; }
-    .tech-card p { font-size: .82rem; color: #94a3b8; }
+    .tech-card h4 { font-size: .95rem; font-weight: 600; margin-bottom: 4px; color: #f1f5f9; }
+    .tech-card p { font-size: .8rem; color: #94a3b8; }
 
-    /* ── Footer ── */
     footer {
       text-align: center;
-      padding: 40px 20px;
+      padding: 36px 20px;
       color: #475569;
-      font-size: .82rem;
+      font-size: .8rem;
       border-top: 1px solid #1e293b;
     }
 
-    /* ── Responsive ── */
     @media (max-width: 700px) {
-      .hero h1 { font-size: 1.8rem; }
-      .lifecycle-node { min-width: 80px; padding: 10px 12px; }
-      .lifecycle-node .lc-label { font-size: .72rem; }
-      .lifecycle-arrow { font-size: 1rem; }
+      .hero h1 { font-size: 1.7rem; }
+      #detail-panel { width: 100%; right: -100%; }
+      .lifecycle-node { min-width: 70px; padding: 8px 10px; }
+      .lifecycle-node .lc-label { font-size: .68rem; }
     }
   </style>
 </head>
 <body>
 
-<!-- ═══════════════ HERO ═══════════════ -->
 <div class="hero">
   <h1>Work Order Agent</h1>
-  <p>An AI-powered property maintenance system that takes requests from tenants, intelligently assigns work to employees, and tracks everything through completion.</p>
-  <span class="hero-hint">Click any node below to expand &amp; explore</span>
+  <p>AI-powered property maintenance — from tenant report to resolution. Click any node in the tree to see the code that powers it.</p>
+  <span class="hero-hint">Click nodes to expand &middot; Click leaf nodes for code details</span>
 </div>
 
-<!-- ═══════════════ INTERACTIVE TREE ═══════════════ -->
+<!-- ── Interactive horizontal tree ── -->
 <div id="tree-container"></div>
 
-<!-- ═══════════════ LIFECYCLE ═══════════════ -->
+<!-- ── Slide-out detail panel ── -->
+<div id="detail-panel">
+  <button class="close-btn" onclick="closePanel()">&times;</button>
+  <div id="detail-content"></div>
+</div>
+
+<!-- ── Lifecycle ── -->
 <div class="flow-section">
   <h2>Work Order Lifecycle</h2>
   <p class="subtitle">Every maintenance request follows this journey from report to resolution.</p>
   <div class="lifecycle">
-    <div class="lifecycle-step">
-      <div class="lifecycle-node"><span class="lc-icon">📱</span><span class="lc-label">Tenant Reports</span></div>
-      <span class="lifecycle-arrow">→</span>
-    </div>
-    <div class="lifecycle-step">
-      <div class="lifecycle-node"><span class="lc-icon">🤖</span><span class="lc-label">AI Intake</span></div>
-      <span class="lifecycle-arrow">→</span>
-    </div>
-    <div class="lifecycle-step">
-      <div class="lifecycle-node"><span class="lc-icon">🎫</span><span class="lc-label">Ticket Created</span></div>
-      <span class="lifecycle-arrow">→</span>
-    </div>
-    <div class="lifecycle-step">
-      <div class="lifecycle-node"><span class="lc-icon">🧠</span><span class="lc-label">Smart Assign</span></div>
-      <span class="lifecycle-arrow">→</span>
-    </div>
-    <div class="lifecycle-step">
-      <div class="lifecycle-node"><span class="lc-icon">📋</span><span class="lc-label">Scheduled</span></div>
-      <span class="lifecycle-arrow">→</span>
-    </div>
-    <div class="lifecycle-step">
-      <div class="lifecycle-node"><span class="lc-icon">🔧</span><span class="lc-label">Work Done</span></div>
-      <span class="lifecycle-arrow">→</span>
-    </div>
-    <div class="lifecycle-step">
-      <div class="lifecycle-node"><span class="lc-icon">⭐</span><span class="lc-label">Feedback</span></div>
-      <span class="lifecycle-arrow">→</span>
-    </div>
-    <div class="lifecycle-step">
-      <div class="lifecycle-node"><span class="lc-icon">✅</span><span class="lc-label">Resolved</span></div>
-    </div>
+    <div class="lifecycle-step"><div class="lifecycle-node"><span class="lc-icon">📱</span><span class="lc-label">Report</span></div><span class="lifecycle-arrow">→</span></div>
+    <div class="lifecycle-step"><div class="lifecycle-node"><span class="lc-icon">🤖</span><span class="lc-label">AI Intake</span></div><span class="lifecycle-arrow">→</span></div>
+    <div class="lifecycle-step"><div class="lifecycle-node"><span class="lc-icon">🎫</span><span class="lc-label">Ticket</span></div><span class="lifecycle-arrow">→</span></div>
+    <div class="lifecycle-step"><div class="lifecycle-node"><span class="lc-icon">🧠</span><span class="lc-label">Assign</span></div><span class="lifecycle-arrow">→</span></div>
+    <div class="lifecycle-step"><div class="lifecycle-node"><span class="lc-icon">📋</span><span class="lc-label">Schedule</span></div><span class="lifecycle-arrow">→</span></div>
+    <div class="lifecycle-step"><div class="lifecycle-node"><span class="lc-icon">🔧</span><span class="lc-label">Work</span></div><span class="lifecycle-arrow">→</span></div>
+    <div class="lifecycle-step"><div class="lifecycle-node"><span class="lc-icon">⭐</span><span class="lc-label">Feedback</span></div><span class="lifecycle-arrow">→</span></div>
+    <div class="lifecycle-step"><div class="lifecycle-node"><span class="lc-icon">✅</span><span class="lc-label">Resolved</span></div></div>
   </div>
 </div>
 
-<!-- ═══════════════ DETAILED FLOWS ═══════════════ -->
+<!-- ── Detailed flows ── -->
 <div class="flow-section">
   <h2>How Each Channel Works</h2>
-  <p class="subtitle">Tenants can reach out via text, phone call, or the web — each triggers a different AI-powered flow.</p>
-
+  <p class="subtitle">Three intake channels, each wired to different AI and communication services.</p>
   <div class="flow-grid">
-    <!-- SMS -->
+
     <div class="flow-card">
       <div class="accent" style="background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div>
-      <span class="icon">💬</span>
       <h3>SMS Intake</h3>
-      <p>Tenants text their issue. Claude AI has a natural conversation to gather details, then creates a work order automatically.</p>
+      <span class="card-file">services/sms_agent.py &rarr; process_sms_message()</span>
+      <p>Tenant texts in. Twilio delivers to <span class="code-ref">POST /api/twilio/sms</span>. The SMS router classifies the sender, then Claude Sonnet runs a multi-turn conversation to gather name, unit, property, and issue details.</p>
       <ol class="steps">
-        <li><span class="step-num" style="background:#3b82f6">1</span>Tenant sends a text message</li>
-        <li><span class="step-num" style="background:#3b82f6">2</span>Twilio delivers it to our backend</li>
-        <li><span class="step-num" style="background:#3b82f6">3</span>Claude AI chats back to gather info — name, location, what's wrong</li>
-        <li><span class="step-num" style="background:#3b82f6">4</span>AI assesses urgency (emergency = instant escalation)</li>
-        <li><span class="step-num" style="background:#3b82f6">5</span>Ticket created and tenant gets confirmation</li>
+        <li><span class="step-num" style="background:#3b82f6">1</span><span class="code-ref">handle_incoming_sms()</span> receives Twilio form data</li>
+        <li><span class="step-num" style="background:#3b82f6">2</span><span class="code-ref">classify_sender()</span> routes to intake, completion, or feedback</li>
+        <li><span class="step-num" style="background:#3b82f6">3</span>Claude Sonnet chats with tenant using 2 tools: <span class="code-ref">create_ticket</span> and <span class="code-ref">escalate_emergency</span></li>
+        <li><span class="step-num" style="background:#3b82f6">4</span><span class="code-ref">create_ticket_from_conversation()</span> persists the Ticket to SQLite</li>
+        <li><span class="step-num" style="background:#3b82f6">5</span>If emergency &rarr; <span class="code-ref">check_and_escalate()</span> triggers outbound call</li>
       </ol>
     </div>
 
-    <!-- Voice -->
     <div class="flow-card">
       <div class="accent" style="background: linear-gradient(90deg, #8b5cf6, #a78bfa);"></div>
-      <span class="icon">📞</span>
       <h3>Voice Intake</h3>
-      <p>Tenants call and speak to an ElevenLabs AI voice agent that listens, asks questions, and files the ticket — no hold music needed.</p>
+      <span class="card-file">routers/twilio_webhooks.py &rarr; handle_incoming_call()</span>
+      <p>Tenant calls. Twilio hits <span class="code-ref">POST /api/twilio/voice</span>, which calls the ElevenLabs <span class="code-ref">register-call</span> API to connect the caller to a voice AI agent. The agent calls backend tool endpoints to create tickets.</p>
       <ol class="steps">
-        <li><span class="step-num" style="background:#8b5cf6">1</span>Tenant calls the property number</li>
-        <li><span class="step-num" style="background:#8b5cf6">2</span>Twilio connects to ElevenLabs voice AI</li>
-        <li><span class="step-num" style="background:#8b5cf6">3</span>AI agent has a real conversation with the tenant</li>
-        <li><span class="step-num" style="background:#8b5cf6">4</span>Agent files the ticket via backend tools</li>
-        <li><span class="step-num" style="background:#8b5cf6">5</span>Tenant gets spoken confirmation on the call</li>
+        <li><span class="step-num" style="background:#8b5cf6">1</span>Twilio voice webhook fires, backend calls ElevenLabs API</li>
+        <li><span class="step-num" style="background:#8b5cf6">2</span>ElevenLabs returns TwiML to connect WebRTC stream</li>
+        <li><span class="step-num" style="background:#8b5cf6">3</span>Voice agent calls <span class="code-ref">POST /api/tools/create_ticket</span></li>
+        <li><span class="step-num" style="background:#8b5cf6">4</span>Can also call <span class="code-ref">/api/tools/lookup_property</span> and <span class="code-ref">/api/tools/escalate_emergency</span></li>
       </ol>
     </div>
 
-    <!-- Assignment -->
     <div class="flow-card">
       <div class="accent" style="background: linear-gradient(90deg, #10b981, #34d399);"></div>
-      <span class="icon">🧠</span>
-      <h3>Smart Assignment</h3>
-      <p>A manager chats with the AI agent to assign work orders. It considers employee skills, workload, availability, and urgency.</p>
+      <h3>AI Assignment Agent</h3>
+      <span class="card-file">services/assignment_agent.py &rarr; process_assignment_chat()</span>
+      <p>Manager chats with Claude via <span class="code-ref">POST /api/agent/chat</span>. The agent runs up to 10 tool-calling rounds using 7 tools to check skills, workloads, schedules, and make assignments.</p>
       <ol class="steps">
-        <li><span class="step-num" style="background:#10b981">1</span>Manager asks the AI to assign open tickets</li>
-        <li><span class="step-num" style="background:#10b981">2</span>AI checks skills, workloads, and schedules</li>
-        <li><span class="step-num" style="background:#10b981">3</span>Suggests best-fit employees with reasoning</li>
-        <li><span class="step-num" style="background:#10b981">4</span>Manager can correct — AI learns from feedback</li>
-        <li><span class="step-num" style="background:#10b981">5</span>Employee gets an SMS with assignment details</li>
+        <li><span class="step-num" style="background:#10b981">1</span><span class="code-ref">AgentSession</span> tracks conversation in DB (JSON messages)</li>
+        <li><span class="step-num" style="background:#10b981">2</span>Claude calls <span class="code-ref">get_unassigned_tickets</span> + <span class="code-ref">get_employees</span></li>
+        <li><span class="step-num" style="background:#10b981">3</span>Matches skills via <span class="code-ref">SkillAssessment</span> (9 categories, 4 levels)</li>
+        <li><span class="step-num" style="background:#10b981">4</span><span class="code-ref">assign_ticket</span> creates Assignment + sends SMS to employee</li>
+        <li><span class="step-num" style="background:#10b981">5</span>Manager corrections &rarr; <span class="code-ref">update_employee_skill</span> + <span class="code-ref">AssignmentFeedback</span> audit</li>
       </ol>
     </div>
 
-    <!-- Completion -->
     <div class="flow-card">
       <div class="accent" style="background: linear-gradient(90deg, #f59e0b, #fbbf24);"></div>
-      <span class="icon">📸</span>
-      <h3>Completion & Feedback</h3>
-      <p>After the time block ends, employees get a follow-up text. They reply with photos, then tenants rate the work.</p>
+      <h3>Completion &amp; Feedback</h3>
+      <span class="card-file">services/completion_handler.py + followup_scheduler.py</span>
+      <p>APScheduler cron jobs fire at noon and 5 PM to send follow-up texts. Employees reply with MMS photos. Tenants get a satisfaction survey analyzed by Claude Haiku.</p>
       <ol class="steps">
-        <li><span class="step-num" style="background:#f59e0b">1</span>Scheduler sends follow-up at noon or 5 PM</li>
-        <li><span class="step-num" style="background:#f59e0b">2</span>Employee replies with photos via MMS</li>
-        <li><span class="step-num" style="background:#f59e0b">3</span>Work marked complete, tenant surveyed</li>
-        <li><span class="step-num" style="background:#f59e0b">4</span>AI analyzes feedback for sentiment &amp; score</li>
-        <li><span class="step-num" style="background:#f59e0b">5</span>Full audit trail stored for every step</li>
+        <li><span class="step-num" style="background:#f59e0b">1</span><span class="code-ref">trigger_am_followups()</span> at 12:00 PM / <span class="code-ref">trigger_pm_followups()</span> at 5:00 PM</li>
+        <li><span class="step-num" style="background:#f59e0b">2</span>Employee texts back &rarr; <span class="code-ref">handle_employee_completion()</span> extracts MMS photos</li>
+        <li><span class="step-num" style="background:#f59e0b">3</span><span class="code-ref">send_feedback_request_to_tenant()</span> surveys the tenant</li>
+        <li><span class="step-num" style="background:#f59e0b">4</span><span class="code-ref">analyze_tenant_feedback()</span> uses Claude Haiku &rarr; score 1-5, resolved flag, summary</li>
       </ol>
     </div>
 
-    <!-- Emergency -->
     <div class="flow-card">
       <div class="accent" style="background: linear-gradient(90deg, #ef4444, #f87171);"></div>
-      <span class="icon">🚨</span>
       <h3>Emergency Escalation</h3>
-      <p>When the AI detects an emergency (burst pipe, no heat in Maine winter, gas leak), it immediately calls the property manager.</p>
+      <span class="card-file">services/emergency.py &rarr; trigger_emergency_call()</span>
+      <p>When AI detects an emergency (burst pipe, no heat, gas leak), <span class="code-ref">check_and_escalate()</span> places an outbound Twilio call to the property manager with a TwiML voice announcement.</p>
       <ol class="steps">
-        <li><span class="step-num" style="background:#ef4444">1</span>AI detects emergency urgency</li>
-        <li><span class="step-num" style="background:#ef4444">2</span>Ticket created with emergency flag</li>
-        <li><span class="step-num" style="background:#ef4444">3</span>Twilio places outbound call to property manager</li>
-        <li><span class="step-num" style="background:#ef4444">4</span>Automated voice announces the emergency details</li>
-        <li><span class="step-num" style="background:#ef4444">5</span>Manager can respond immediately</li>
+        <li><span class="step-num" style="background:#ef4444">1</span>AI sets <span class="code-ref">urgency = "emergency"</span> during intake</li>
+        <li><span class="step-num" style="background:#ef4444">2</span><span class="code-ref">trigger_emergency_call(ticket)</span> builds TwiML Say announcement</li>
+        <li><span class="step-num" style="background:#ef4444">3</span>Twilio calls <span class="code-ref">EMERGENCY_PHONE_NUMBER</span> with details</li>
+        <li><span class="step-num" style="background:#ef4444">4</span>Ticket marked <span class="code-ref">emergency_dispatched = True</span></li>
       </ol>
     </div>
 
-    <!-- Web UI -->
     <div class="flow-card">
       <div class="accent" style="background: linear-gradient(90deg, #06b6d4, #22d3ee);"></div>
-      <span class="icon">🖥️</span>
       <h3>Management Dashboard</h3>
-      <p>The web app gives managers a live view of all tickets, employees, schedules, and the AI chat interface — all in one place.</p>
+      <span class="card-file">frontend/src/pages/ (React + Vite + Tailwind)</span>
+      <p>Five pages give managers full visibility: ticket dashboard with live stats, employee skill management, weekly/daily schedule, AI chat interface, and property settings.</p>
       <ol class="steps">
-        <li><span class="step-num" style="background:#06b6d4">1</span>Dashboard: live ticket stats, filters, search</li>
-        <li><span class="step-num" style="background:#06b6d4">2</span>Employees: manage team &amp; set skill levels</li>
-        <li><span class="step-num" style="background:#06b6d4">3</span>Schedule: weekly/daily calendar of assignments</li>
-        <li><span class="step-num" style="background:#06b6d4">4</span>Agent Chat: talk to AI for smart assignments</li>
-        <li><span class="step-num" style="background:#06b6d4">5</span>Settings: manage properties &amp; contacts</li>
+        <li><span class="step-num" style="background:#06b6d4">1</span><span class="code-ref">Dashboard.jsx</span> — stats cards, filters, auto-refresh every 15s</li>
+        <li><span class="step-num" style="background:#06b6d4">2</span><span class="code-ref">Employees.jsx</span> — skill grid (9 categories &times; 4 levels, color-coded)</li>
+        <li><span class="step-num" style="background:#06b6d4">3</span><span class="code-ref">Schedule.jsx</span> — AM/PM time blocks, weekly or daily toggle</li>
+        <li><span class="step-num" style="background:#06b6d4">4</span><span class="code-ref">AgentChat.jsx</span> — chat UI with quick prompts, shows tool actions</li>
       </ol>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════ AI LEARNING ═══════════════ -->
+<!-- ── AI Learning Loop ── -->
 <div class="flow-section">
   <h2>The AI Learning Loop</h2>
-  <p class="subtitle">The assignment agent gets smarter over time as managers provide feedback on employee skills.</p>
-
+  <p class="subtitle">The assignment agent improves over time. Manager corrections are persisted as <span class="code-ref">SkillAssessment</span> updates with an <span class="code-ref">AssignmentFeedback</span> audit trail.</p>
   <div class="flow-grid" style="grid-template-columns: 1fr;">
-    <div class="flow-card" style="max-width: 800px; margin: 0 auto; width: 100%;">
+    <div class="flow-card" style="max-width: 860px; margin: 0 auto; width: 100%;">
       <div class="accent" style="background: linear-gradient(90deg, #a78bfa, #f472b6);"></div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; text-align: center; padding-top: 12px;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; text-align: center; padding-top: 10px;">
         <div>
-          <div style="font-size: 2.2rem; margin-bottom: 8px;">📊</div>
+          <div style="font-size: 2rem; margin-bottom: 6px;">📊</div>
           <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">AI Suggests</div>
-          <div style="font-size: .85rem; color: #94a3b8;">"Assign plumbing to John — he's an expert with low workload"</div>
+          <div style="font-size: .82rem; color: #94a3b8;"><span class="code-ref">get_employees()</span> checks skill levels + workload</div>
         </div>
         <div>
-          <div style="font-size: 2.2rem; margin-bottom: 8px;">💬</div>
+          <div style="font-size: 2rem; margin-bottom: 6px;">💬</div>
           <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Manager Corrects</div>
-          <div style="font-size: .85rem; color: #94a3b8;">"Actually, Sarah just got certified in plumbing — use her"</div>
+          <div style="font-size: .82rem; color: #94a3b8;">"Sarah is actually expert at plumbing now"</div>
         </div>
         <div>
-          <div style="font-size: 2.2rem; margin-bottom: 8px;">🧠</div>
+          <div style="font-size: 2rem; margin-bottom: 6px;">🧠</div>
           <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">AI Learns</div>
-          <div style="font-size: .85rem; color: #94a3b8;">Updates Sarah's plumbing skill to "expert" with audit trail</div>
+          <div style="font-size: .82rem; color: #94a3b8;"><span class="code-ref">update_employee_skill()</span> upserts SkillAssessment row</div>
         </div>
         <div>
-          <div style="font-size: 2.2rem; margin-bottom: 8px;">🔄</div>
-          <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Better Next Time</div>
-          <div style="font-size: .85rem; color: #94a3b8;">Future suggestions use updated skill data automatically</div>
+          <div style="font-size: 2rem; margin-bottom: 6px;">🔄</div>
+          <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Audit Logged</div>
+          <div style="font-size: .82rem; color: #94a3b8;"><span class="code-ref">AssignmentFeedback</span> records skill_change + notes</div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════ TECH STACK ═══════════════ -->
+<!-- ── Tech Stack ── -->
 <div class="flow-section">
   <h2>Technology Stack</h2>
-  <p class="subtitle">The building blocks that make it all work together.</p>
+  <p class="subtitle">The services and frameworks that make it work.</p>
   <div class="tech-grid">
-    <div class="tech-card">
-      <div class="tech-icon">⚡</div>
-      <h4>FastAPI + Python</h4>
-      <p>Backend API server handling all business logic, webhooks, and database operations</p>
-    </div>
-    <div class="tech-card">
-      <div class="tech-icon">⚛️</div>
-      <h4>React + Vite</h4>
-      <p>Fast, modern frontend with Tailwind CSS for the management dashboard</p>
-    </div>
-    <div class="tech-card">
-      <div class="tech-icon">🧠</div>
-      <h4>Claude AI (Anthropic)</h4>
-      <p>Powers SMS conversations, assignment intelligence, and feedback analysis</p>
-    </div>
-    <div class="tech-card">
-      <div class="tech-icon">🗣️</div>
-      <h4>ElevenLabs</h4>
-      <p>Conversational voice AI for natural phone-based intake</p>
-    </div>
-    <div class="tech-card">
-      <div class="tech-icon">📡</div>
-      <h4>Twilio</h4>
-      <p>SMS messaging, voice calls, MMS photo handling, and emergency dispatch</p>
-    </div>
-    <div class="tech-card">
-      <div class="tech-icon">🗄️</div>
-      <h4>SQLite + SQLAlchemy</h4>
-      <p>Local database storing tickets, employees, assignments, and conversation history</p>
-    </div>
+    <div class="tech-card"><h4>FastAPI + Python</h4><p>Backend API, webhooks, services, and DB access</p></div>
+    <div class="tech-card"><h4>React + Vite</h4><p>Frontend dashboard with Tailwind CSS</p></div>
+    <div class="tech-card"><h4>Claude AI (Anthropic)</h4><p>SMS intake (Sonnet), assignment agent (Sonnet), feedback analysis (Haiku)</p></div>
+    <div class="tech-card"><h4>ElevenLabs</h4><p>Conversational voice AI for phone intake</p></div>
+    <div class="tech-card"><h4>Twilio</h4><p>SMS, MMS photos, voice calls, emergency dispatch</p></div>
+    <div class="tech-card"><h4>SQLite + SQLAlchemy</h4><p>8 models: Ticket, Employee, Assignment, Conversation, etc.</p></div>
   </div>
 </div>
 
-<footer>
-  Work Order Agent — AI-Powered Property Maintenance
-</footer>
+<footer>Work Order Agent &mdash; AI-Powered Property Maintenance</footer>
 
-<!-- ═══════════════ D3 INTERACTIVE TREE ═══════════════ -->
+<!-- ═══════════ D3 HORIZONTAL TREE ═══════════ -->
 <script>
+// ── Detail data for leaf nodes ──
+const details = {
+  "SMS Webhook": {
+    title: "SMS Webhook Handler",
+    file: "routers/twilio_webhooks.py",
+    desc: "Twilio posts incoming SMS as form data. The handler extracts From, Body, and any MMS media URLs, then routes through the SMS classifier.",
+    code: `POST /api/twilio/sms\n\nhandle_incoming_sms(request, db)\n  → classify_sender(db, phone)\n  → process_sms_message(db, phone, body)\n  → _twiml_response(reply)`,
+    tags: ["Twilio", "Webhook"]
+  },
+  "SMS Router": {
+    title: "SMS Sender Classifier",
+    file: "services/sms_router.py",
+    desc: "Determines if an incoming SMS is from a new tenant (intake), an employee responding to a follow-up (completion), or a tenant replying to a satisfaction survey (feedback).",
+    code: `classify_sender(db, phone) → (role, assignment)\n\nChecks:\n1. Employee with follow_up_sms_sent?\n   → "employee_completion"\n2. Tenant with feedback_sent but no reply?\n   → "tenant_feedback"\n3. Default → "intake"`,
+    tags: ["Routing", "Logic"]
+  },
+  "Claude Sonnet": {
+    title: "SMS Conversation Agent",
+    file: "services/sms_agent.py",
+    desc: "Claude Sonnet powers the SMS intake conversation. It greets tenants, gathers details (name, property, unit, issue), assesses urgency using Maine-specific rules, and creates work orders.",
+    code: `process_sms_message(db, phone, body)\n\nModel: claude-sonnet-4-20250514\nMax tokens: 500\nTools: create_ticket, escalate_emergency\n\nConversation stored in Conversation model\n(session_id, messages JSON, ticket_id)`,
+    tags: ["Claude AI", "Tool Use"]
+  },
+  "create_ticket tool": {
+    title: "Ticket Creation Tool",
+    file: "services/sms_agent.py → _handle_tool_call()",
+    desc: "When Claude has gathered enough info, it calls this tool to persist a Ticket record. Automatically triggers emergency escalation if urgency is 'emergency'.",
+    code: `create_ticket tool params:\n  tenant_name, unit_number, property_name,\n  description, category, urgency\n\n→ create_ticket_from_conversation()\n→ if emergency: check_and_escalate()`,
+    tags: ["Tool", "Database"]
+  },
+  "Voice Webhook": {
+    title: "Voice Call Handler",
+    file: "routers/twilio_webhooks.py",
+    desc: "When a tenant calls, Twilio fires this webhook. The handler calls the ElevenLabs register-call API to connect the caller to a conversational voice AI agent.",
+    code: `POST /api/twilio/voice\n\nhandle_incoming_call(request, db)\n  → POST elevenlabs.io/v1/convai/twilio/\n         register-call\n  → Returns TwiML for WebRTC stream`,
+    tags: ["Twilio", "ElevenLabs"]
+  },
+  "ElevenLabs Agent": {
+    title: "ElevenLabs Voice AI",
+    file: "routers/elevenlabs_tools.py",
+    desc: "The ElevenLabs agent speaks to the tenant in natural language. When it has gathered enough info, it calls our backend tool endpoints via HTTP POST to create tickets.",
+    code: `Tool endpoints:\n  POST /api/tools/create_ticket\n  POST /api/tools/escalate_emergency\n  POST /api/tools/lookup_property\n\nEach returns JSON: { success, ticket_id, ... }`,
+    tags: ["Voice AI", "Tool Callbacks"]
+  },
+  "Chat UI": {
+    title: "Agent Chat Interface",
+    file: "frontend/src/pages/AgentChat.jsx",
+    desc: "A chat interface where managers talk to the assignment AI. Shows user messages, AI responses, and a list of tool actions taken. Includes quick-start prompts.",
+    code: `POST /api/agent/chat\n  { message, session_id }\n\nReturns:\n  { reply, session_id, actions_taken }\n\nSession stored in localStorage\nQuick prompts:\n  "What tickets need assignment?"\n  "Show me employee workloads"`,
+    tags: ["React", "Frontend"]
+  },
+  "7 Agent Tools": {
+    title: "Assignment Agent Tool Suite",
+    file: "services/assignment_agent.py",
+    desc: "Claude has 7 tools for intelligent assignment. It runs up to 10 rounds of tool calls per conversation turn to gather data, reason about best fits, and execute assignments.",
+    code: `Tools:\n1. get_unassigned_tickets(category?, urgency?)\n2. get_employees()\n3. assign_ticket(ticket_id, employee_id,\n   scheduled_date, time_block)\n4. update_employee_skill(employee_id,\n   category, level)\n5. get_employee_workload(employee_id)\n6. unassign_ticket(assignment_id)\n7. get_employee_schedule(employee_id,\n   start_date, end_date)`,
+    tags: ["Claude AI", "7 Tools"]
+  },
+  "Skill Matching": {
+    title: "Skill-Based Matching",
+    file: "models.py → SkillAssessment",
+    desc: "Each employee has skill levels across 9 maintenance categories. The AI uses these to match the right person to each job, preferring experts for emergencies.",
+    code: `Categories: plumbing, electrical, hvac,\n  structural, pest_control, appliance,\n  lockout_security, general_maintenance,\n  other\n\nLevels: none → beginner → competent → expert\n\nDefault: competent (if no record exists)\nEmergency tickets → prefer expert level`,
+    tags: ["Database", "Matching"]
+  },
+  "Schedule Check": {
+    title: "Schedule & Availability",
+    file: "services/assignment_agent.py → _get_employee_schedule()",
+    desc: "Before assigning, the AI checks the employee's schedule to avoid double-booking. Work is divided into AM (8-12) and PM (1-5) time blocks.",
+    code: `get_employee_schedule(employee_id,\n  start_date, end_date)\n\nReturns assignments in date range\nTime blocks: AM (8:00-12:00)\n             PM (1:00-5:00)\n\nassign_ticket checks for conflicts\nbefore creating Assignment record`,
+    tags: ["Scheduling", "Availability"]
+  },
+  "AM/PM Scheduler": {
+    title: "Automated Follow-Up Scheduler",
+    file: "services/followup_scheduler.py",
+    desc: "APScheduler runs two cron jobs daily. At noon it follows up on AM assignments, at 5 PM on PM assignments. Sends SMS asking employees if they finished.",
+    code: `start_scheduler() → 2 cron jobs:\n\n12:00 PM → trigger_am_followups()\n  → _send_followups_for_block("AM")\n\n5:00 PM → trigger_pm_followups()\n  → _send_followups_for_block("PM")\n\nQuery: today + time_block + not followed up\n→ send_followup_sms_to_employee()`,
+    tags: ["APScheduler", "Cron"]
+  },
+  "MMS Photos": {
+    title: "Photo Capture via MMS",
+    file: "services/completion_handler.py",
+    desc: "Employees reply to follow-up texts with photos. The handler extracts Twilio MMS media URLs from the form data (NumMedia, MediaUrl0, etc.) and stores them on the Assignment.",
+    code: `handle_employee_completion(db,\n  assignment, body, form_data)\n\nnum_media = int(form_data.get("NumMedia", 0))\nfor i in range(num_media):\n  url = form_data.get(f"MediaUrl{i}")\n  photos.append(url)\n\nassignment.photo_urls = photos  # JSON\nassignment.status = "completed"`,
+    tags: ["Twilio MMS", "Photos"]
+  },
+  "Tenant Survey": {
+    title: "Tenant Satisfaction Survey",
+    file: "services/sms_notify.py → send_feedback_request_to_tenant()",
+    desc: "After an employee marks work complete, the system texts the tenant asking if the issue was resolved and to rate 1-5. Their reply is analyzed by Claude Haiku.",
+    code: `SMS to tenant:\n"Hi {name}, maintenance was performed\non your request ({description}).\nWas the issue fully resolved?\nRate 1-5? Any comments?"`,
+    tags: ["SMS", "Survey"]
+  },
+  "Claude Haiku": {
+    title: "Feedback Sentiment Analyzer",
+    file: "services/feedback_analyzer.py",
+    desc: "Claude Haiku (fast, cheap) analyzes the tenant's raw text reply and extracts structured data: whether the issue was resolved, a 1-5 score, and a one-sentence summary.",
+    code: `analyze_tenant_feedback(raw_message)\n\nModel: claude-haiku-4-5-20251001\nMax tokens: 200\n\nReturns JSON:\n{\n  "resolved": true/false/null,\n  "score": 1-5 or null,\n  "summary": "one sentence"\n}`,
+    tags: ["Claude AI", "Analysis"]
+  },
+  "Emergency Detect": {
+    title: "Emergency Detection",
+    file: "services/sms_agent.py (system prompt)",
+    desc: "The SMS agent's system prompt includes Maine-specific urgency rules. No heat in winter, burst pipes, gas leaks, and fire/flood are flagged as emergencies requiring immediate escalation.",
+    code: `Urgency rules in system prompt:\n- No heat (Maine winter) → EMERGENCY\n- Burst/flooding pipe → EMERGENCY\n- Gas leak/smell → EMERGENCY\n- Fire/smoke → EMERGENCY\n- Electrical hazard → EMERGENCY\n\nAI calls escalate_emergency tool\nor sets urgency="emergency" on ticket`,
+    tags: ["AI Logic", "Safety"]
+  },
+  "Outbound Call": {
+    title: "Emergency Outbound Call",
+    file: "services/emergency.py → trigger_emergency_call()",
+    desc: "Places an automated phone call to the property manager using Twilio. A TwiML Say announcement reads out the tenant name, property, unit, issue, and ticket ID.",
+    code: `trigger_emergency_call(ticket)\n\nclient = TwilioClient(sid, token)\nclient.calls.create(\n  to = EMERGENCY_PHONE_NUMBER,\n  from_ = TWILIO_PHONE_NUMBER,\n  twiml = '<Say voice="Polly.Joanna">'\n    'Emergency maintenance...'\n    '{tenant}, {property}, unit {unit}'\n    '{description}, ticket #{id}'\n  '</Say>'\n)`,
+    tags: ["Twilio", "Voice"]
+  },
+  "Dashboard": {
+    title: "Ticket Dashboard",
+    file: "frontend/src/pages/Dashboard.jsx",
+    desc: "The main view showing 4 stat cards (total, open, in-progress, emergencies), filter bar (search, status, urgency, category), and a sortable ticket table. Auto-refreshes every 15 seconds.",
+    code: `GET /api/tickets/stats → 4 stat cards\nGET /api/tickets/ → filtered list\n\nFilters: search, status, urgency, category\nAuto-refresh: setInterval(15000)\nComponents: TicketTable, UrgencyBadge,\n  StatusBadge`,
+    tags: ["React", "Dashboard"]
+  },
+  "Employees Page": {
+    title: "Employee & Skill Manager",
+    file: "frontend/src/pages/Employees.jsx",
+    desc: "Employee cards with create/edit forms. Each employee shows a skill grid — 9 category pills color-coded by level (expert=green, competent=blue, beginner=yellow, none=gray). Click any pill to edit.",
+    code: `GET /api/employees/\nPOST /api/employees/\nPOST /api/employees/{id}/skills\n\nSkill grid: 9 categories × 4 levels\nColor coding:\n  expert → green\n  competent → blue\n  beginner → yellow\n  none → gray`,
+    tags: ["React", "CRUD"]
+  },
+  "Schedule Page": {
+    title: "Assignment Schedule",
+    file: "frontend/src/pages/Schedule.jsx",
+    desc: "Weekly view: rows=employees, columns=days with AM/PM blocks. Daily view: expanded cards per time slot. Today's column highlighted. Schedule blocks color-coded by category.",
+    code: `GET /api/assignments/schedule\n  ?start_date&end_date&employee_id\n\nViews: Weekly | Daily toggle\nTime blocks: AM (8-12), PM (1-5)\nScheduleBlock cards:\n  category, property, unit, ticket #\nColor-coded by maintenance category`,
+    tags: ["React", "Calendar"]
+  },
+};
+
+// ── Tree data (horizontal, codebase-grounded) ──
 const treeData = {
   name: "Work Order Agent",
-  desc: "AI-Powered Maintenance System",
+  desc: "main.py",
   color: "#60a5fa",
   children: [
     {
-      name: "Tenant Channels",
-      desc: "How tenants report issues",
+      name: "Tenant Intake",
+      desc: "3 channels in",
       color: "#3b82f6",
       children: [
         {
-          name: "SMS (Text)",
-          desc: "Claude AI conversation",
+          name: "SMS",
+          desc: "twilio_webhooks.py",
           color: "#3b82f6",
           children: [
-            { name: "Twilio Webhook", desc: "Receives incoming texts", color: "#60a5fa" },
-            { name: "Claude Sonnet", desc: "Multi-turn chat agent", color: "#60a5fa" },
-            { name: "Ticket Creation", desc: "Auto-creates work order", color: "#60a5fa" },
-            { name: "Emergency Check", desc: "Auto-escalates if urgent", color: "#ef4444" }
+            { name: "SMS Webhook", desc: "POST /api/twilio/sms", color: "#60a5fa", detail: "SMS Webhook" },
+            { name: "SMS Router", desc: "classify_sender()", color: "#60a5fa", detail: "SMS Router" },
+            { name: "Claude Sonnet", desc: "sms_agent.py", color: "#60a5fa", detail: "Claude Sonnet" },
+            { name: "create_ticket tool", desc: "→ Ticket model", color: "#60a5fa", detail: "create_ticket tool" }
           ]
         },
         {
-          name: "Phone Call",
-          desc: "ElevenLabs voice agent",
+          name: "Voice",
+          desc: "ElevenLabs AI",
           color: "#8b5cf6",
           children: [
-            { name: "Twilio Voice", desc: "Routes call to AI", color: "#a78bfa" },
-            { name: "ElevenLabs Agent", desc: "Natural voice conversation", color: "#a78bfa" },
-            { name: "Tool Callbacks", desc: "Creates ticket via API", color: "#a78bfa" }
-          ]
-        },
-        {
-          name: "Web Form",
-          desc: "Manual entry by staff",
-          color: "#06b6d4",
-          children: [
-            { name: "Dashboard", desc: "Ticket creation form", color: "#22d3ee" },
-            { name: "Direct to DB", desc: "No AI needed", color: "#22d3ee" }
+            { name: "Voice Webhook", desc: "POST /api/twilio/voice", color: "#a78bfa", detail: "Voice Webhook" },
+            { name: "ElevenLabs Agent", desc: "/api/tools/*", color: "#a78bfa", detail: "ElevenLabs Agent" }
           ]
         }
       ]
     },
     {
-      name: "AI Assignment",
-      desc: "Smart work distribution",
+      name: "Assignment",
+      desc: "assignment_agent.py",
       color: "#10b981",
       children: [
-        {
-          name: "Chat Interface",
-          desc: "Manager talks to AI",
-          color: "#10b981",
-          children: [
-            { name: "Ask Questions", desc: "\"What needs assignment?\"", color: "#34d399" },
-            { name: "Get Suggestions", desc: "AI reasons about best fit", color: "#34d399" },
-            { name: "Give Feedback", desc: "Correct AI's suggestions", color: "#34d399" }
-          ]
-        },
-        {
-          name: "Skill Matching",
-          desc: "Right person for the job",
-          color: "#10b981",
-          children: [
-            { name: "9 Categories", desc: "Plumbing, HVAC, electrical...", color: "#34d399" },
-            { name: "4 Skill Levels", desc: "None → Beginner → Competent → Expert", color: "#34d399" },
-            { name: "Workload Check", desc: "Don't overload anyone", color: "#34d399" }
-          ]
-        },
-        {
-          name: "Scheduling",
-          desc: "Time blocks & availability",
-          color: "#10b981",
-          children: [
-            { name: "AM Block", desc: "8:00 AM – 12:00 PM", color: "#34d399" },
-            { name: "PM Block", desc: "1:00 PM – 5:00 PM", color: "#34d399" },
-            { name: "Conflict Check", desc: "No double-booking", color: "#34d399" }
-          ]
-        }
+        { name: "Chat UI", desc: "AgentChat.jsx", color: "#34d399", detail: "Chat UI" },
+        { name: "7 Agent Tools", desc: "Claude multi-round", color: "#34d399", detail: "7 Agent Tools" },
+        { name: "Skill Matching", desc: "SkillAssessment model", color: "#34d399", detail: "Skill Matching" },
+        { name: "Schedule Check", desc: "AM/PM time blocks", color: "#34d399", detail: "Schedule Check" }
       ]
     },
     {
-      name: "Completion Flow",
-      desc: "Tracking & quality",
+      name: "Completion",
+      desc: "completion_handler.py",
       color: "#f59e0b",
       children: [
-        {
-          name: "Follow-Up",
-          desc: "Automated check-ins",
-          color: "#f59e0b",
-          children: [
-            { name: "Auto Scheduler", desc: "Triggers at noon & 5 PM", color: "#fbbf24" },
-            { name: "SMS to Employee", desc: "\"Did you finish the work?\"", color: "#fbbf24" }
-          ]
-        },
-        {
-          name: "Employee Response",
-          desc: "Completion + photos",
-          color: "#f59e0b",
-          children: [
-            { name: "Text Confirmation", desc: "Employee replies done", color: "#fbbf24" },
-            { name: "MMS Photos", desc: "Before/after proof", color: "#fbbf24" },
-            { name: "Auto-Resolve", desc: "Marks ticket complete", color: "#fbbf24" }
-          ]
-        },
-        {
-          name: "Tenant Feedback",
-          desc: "Quality assurance",
-          color: "#f59e0b",
-          children: [
-            { name: "Survey SMS", desc: "Sent to tenant after work", color: "#fbbf24" },
-            { name: "AI Analysis", desc: "Claude Haiku scores 1-5", color: "#fbbf24" },
-            { name: "Audit Trail", desc: "Everything is recorded", color: "#fbbf24" }
-          ]
-        }
+        { name: "AM/PM Scheduler", desc: "followup_scheduler.py", color: "#fbbf24", detail: "AM/PM Scheduler" },
+        { name: "MMS Photos", desc: "Twilio media URLs", color: "#fbbf24", detail: "MMS Photos" },
+        { name: "Tenant Survey", desc: "sms_notify.py", color: "#fbbf24", detail: "Tenant Survey" },
+        { name: "Claude Haiku", desc: "feedback_analyzer.py", color: "#fbbf24", detail: "Claude Haiku" }
       ]
     },
     {
-      name: "Emergency System",
-      desc: "Instant escalation",
+      name: "Emergency",
+      desc: "emergency.py",
       color: "#ef4444",
       children: [
-        { name: "Auto-Detection", desc: "AI flags emergencies", color: "#f87171" },
-        { name: "Outbound Call", desc: "Twilio calls property manager", color: "#f87171" },
-        { name: "Voice Announcement", desc: "Reads details to manager", color: "#f87171" },
-        { name: "Dashboard Alert", desc: "Red flag on web UI", color: "#f87171" }
+        { name: "Emergency Detect", desc: "AI urgency rules", color: "#f87171", detail: "Emergency Detect" },
+        { name: "Outbound Call", desc: "Twilio TwiML Say", color: "#f87171", detail: "Outbound Call" }
       ]
     },
     {
-      name: "Management UI",
-      desc: "Web dashboard for managers",
+      name: "Web Dashboard",
+      desc: "React + Vite",
       color: "#a78bfa",
       children: [
-        { name: "Dashboard", desc: "Stats, filters, ticket list", color: "#c4b5fd" },
-        { name: "Employees", desc: "Team & skill management", color: "#c4b5fd" },
-        { name: "Schedule", desc: "Weekly/daily calendar view", color: "#c4b5fd" },
-        { name: "Agent Chat", desc: "AI assignment interface", color: "#c4b5fd" },
-        { name: "Settings", desc: "Properties & contacts", color: "#c4b5fd" }
+        { name: "Dashboard", desc: "Dashboard.jsx", color: "#c4b5fd", detail: "Dashboard" },
+        { name: "Employees Page", desc: "Employees.jsx", color: "#c4b5fd", detail: "Employees Page" },
+        { name: "Schedule Page", desc: "Schedule.jsx", color: "#c4b5fd", detail: "Schedule Page" }
       ]
     }
   ]
 };
 
-// ── Build the tree ──
-const margin = { top: 40, right: 120, bottom: 40, left: 120 };
-const nodeW = 180;
-const nodeH = 80;
-
+// ── D3 horizontal tree ──
+const margin = { top: 30, right: 200, bottom: 30, left: 180 };
 const container = d3.select("#tree-container");
-const width = Math.max(1200, window.innerWidth);
-const svgHeight = 820;
-
-const svg = container.append("svg")
-  .attr("width", width)
-  .attr("height", svgHeight);
-
-const g = svg.append("g")
-  .attr("transform", `translate(${width / 2}, ${margin.top + 30})`);
 
 const root = d3.hierarchy(treeData);
 root.x0 = 0;
 root.y0 = 0;
 
-// Collapse children by default (except root level)
-root.children.forEach(collapse);
-
-function collapse(d) {
+// Collapse all second-level children
+root.children.forEach(d => {
   if (d.children) {
     d._children = d.children;
-    d._children.forEach(collapse);
+    d._children.forEach(c => {
+      if (c.children) { c._children = c.children; c.children = null; }
+    });
     d.children = null;
   }
-}
+});
 
-const treemap = d3.tree()
-  .nodeSize([nodeW + 20, nodeH + 60])
-  .separation((a, b) => a.parent === b.parent ? 1 : 1.2);
+const nodeW = 160;
+const nodeH = 56;
+const hSpacing = 240;
+const vSpacing = 68;
 
 let i = 0;
-const duration = 500;
+const duration = 450;
+
+// Initial SVG
+const initW = 1200;
+const initH = 600;
+const svg = container.append("svg")
+  .attr("width", initW)
+  .attr("height", initH);
+const g = svg.append("g")
+  .attr("transform", `translate(${margin.left}, ${initH / 2})`);
+
+const treemap = d3.tree()
+  .nodeSize([vSpacing, hSpacing])
+  .separation((a, b) => a.parent === b.parent ? 1 : 1.3);
 
 update(root);
 
 function update(source) {
-  const treeDataLayout = treemap(root);
-  const nodes = treeDataLayout.descendants();
-  const links = treeDataLayout.links();
+  treemap(root);
+  const nodes = root.descendants();
+  const links = root.links();
 
-  // Fix depth
-  nodes.forEach(d => { d.y = d.depth * 150; });
-
-  // ── LINKS ──
+  // ── Links ──
   const link = g.selectAll("path.link")
     .data(links, d => d.target.id || (d.target.id = ++i));
 
@@ -684,25 +803,30 @@ function update(source) {
       return diagonal(o, o);
     });
 
-  const linkUpdate = linkEnter.merge(link);
-  linkUpdate.transition().duration(duration)
+  linkEnter.merge(link).transition().duration(duration)
     .attr("d", d => diagonal(d.source, d.target));
 
   link.exit().transition().duration(duration)
     .attr("d", () => {
       const o = { x: source.x, y: source.y };
       return diagonal(o, o);
-    })
-    .remove();
+    }).remove();
 
-  // ── NODES ──
+  // ── Nodes ──
   const node = g.selectAll("g.node-group")
     .data(nodes, d => d.id || (d.id = ++i));
 
   const nodeEnter = node.enter().append("g")
     .attr("class", "node-group")
-    .attr("transform", `translate(${source.x0},${source.y0})`)
+    .attr("transform", `translate(${source.y0},${source.x0})`)
     .on("click", (event, d) => {
+      event.stopPropagation();
+      // If leaf with detail, show panel
+      if (!d.children && !d._children && d.data.detail) {
+        showDetail(d.data.detail);
+        return;
+      }
+      // Toggle expand/collapse
       if (d.children) {
         d._children = d.children;
         d.children = null;
@@ -713,80 +837,132 @@ function update(source) {
       update(d);
     });
 
-  nodeEnter.append("circle")
-    .attr("class", "node-circle")
-    .attr("r", 0)
+  // Node rectangle
+  nodeEnter.append("rect")
+    .attr("class", "node-rect")
+    .attr("x", -nodeW / 2)
+    .attr("y", -nodeH / 2)
+    .attr("width", nodeW)
+    .attr("height", nodeH)
     .style("fill", d => d.data.color)
-    .style("stroke", d => d3.color(d.data.color).darker(0.5));
+    .style("stroke", d => d3.color(d.data.color).darker(0.4))
+    .style("stroke-width", 1.5)
+    .style("opacity", 0);
 
+  // Label
   nodeEnter.append("text")
     .attr("class", "node-label")
-    .attr("dy", -6)
+    .attr("dy", d => d.data.desc ? -5 : 1)
     .attr("text-anchor", "middle")
-    .text(d => d.data.name)
-    .style("font-size", d => d.depth === 0 ? "14px" : "12px");
+    .text(d => d.data.name);
 
+  // Description
   nodeEnter.append("text")
     .attr("class", "node-desc")
     .attr("dy", 10)
     .attr("text-anchor", "middle")
-    .text(d => d.data.desc)
-    .style("font-size", "10px");
+    .text(d => d.data.desc || "");
 
-  // +/- indicator
+  // File path for leaves
   nodeEnter.append("text")
-    .attr("class", "collapse-icon")
-    .attr("dy", 30)
-    .text(d => d._children ? `+${d._children.length}` : "");
+    .attr("class", "node-file")
+    .attr("dy", 22)
+    .attr("text-anchor", "middle")
+    .text("");
+
+  // Expand badge
+  nodeEnter.append("text")
+    .attr("class", "node-badge")
+    .attr("x", nodeW / 2 - 8)
+    .attr("y", -nodeH / 2 + 14)
+    .attr("text-anchor", "middle")
+    .text("");
 
   // ── Update ──
   const nodeUpdate = nodeEnter.merge(node);
 
   nodeUpdate.transition().duration(duration)
-    .attr("transform", d => `translate(${d.x},${d.y})`);
+    .attr("transform", d => `translate(${d.y},${d.x})`);
 
-  nodeUpdate.select("circle.node-circle")
-    .attr("r", d => d.depth === 0 ? 28 : d._children ? 22 : 18)
+  nodeUpdate.select("rect.node-rect")
+    .style("opacity", 1)
     .style("fill", d => d.data.color)
-    .style("stroke", d => d3.color(d.data.color).darker(0.5));
+    .style("stroke", d => d3.color(d.data.color).darker(0.4));
 
-  nodeUpdate.select(".collapse-icon")
+  nodeUpdate.select(".node-badge")
     .text(d => d._children ? `+${d._children.length}` : "");
 
   // ── Exit ──
   const nodeExit = node.exit().transition().duration(duration)
-    .attr("transform", `translate(${source.x},${source.y})`)
+    .attr("transform", `translate(${source.y},${source.x})`)
     .remove();
+  nodeExit.select("rect").style("opacity", 0);
 
-  nodeExit.select("circle").attr("r", 0);
+  // Store positions
+  nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
 
-  // Store old positions
-  nodes.forEach(d => {
-    d.x0 = d.x;
-    d.y0 = d.y;
-  });
-
-  // Resize SVG to fit
-  const allNodes = root.descendants();
-  if (allNodes.length > 1) {
-    const xExtent = d3.extent(allNodes, d => d.x);
-    const yMax = d3.max(allNodes, d => d.y);
-    const newWidth = Math.max(1200, (xExtent[1] - xExtent[0]) + 400);
-    const newHeight = Math.max(500, yMax + 220);
-    svg.transition().duration(duration)
-      .attr("width", newWidth)
-      .attr("height", newHeight);
-    g.transition().duration(duration)
-      .attr("transform", `translate(${newWidth / 2}, ${margin.top + 30})`);
-  }
+  // Resize SVG
+  const xExtent = d3.extent(nodes, d => d.x);
+  const yExtent = d3.extent(nodes, d => d.y);
+  const newH = Math.max(500, (xExtent[1] - xExtent[0]) + 160);
+  const newW = Math.max(900, (yExtent[1] - yExtent[0]) + margin.left + margin.right + nodeW);
+  svg.transition().duration(duration)
+    .attr("width", newW)
+    .attr("height", newH);
+  const cy = newH / 2 - (xExtent[0] + xExtent[1]) / 2;
+  g.transition().duration(duration)
+    .attr("transform", `translate(${margin.left + nodeW/2}, ${cy})`);
 }
 
 function diagonal(s, d) {
-  return `M ${s.x} ${s.y}
-          C ${s.x} ${(s.y + d.y) / 2},
-            ${d.x} ${(s.y + d.y) / 2},
-            ${d.x} ${d.y}`;
+  // Horizontal: swap x/y
+  return `M ${s.y} ${s.x}
+          C ${(s.y + d.y) / 2} ${s.x},
+            ${(s.y + d.y) / 2} ${d.x},
+            ${d.y} ${d.x}`;
 }
+
+// ── Detail panel ──
+function showDetail(key) {
+  const d = details[key];
+  if (!d) return;
+  const panel = document.getElementById("detail-panel");
+  const content = document.getElementById("detail-content");
+
+  let tagsHTML = (d.tags || []).map(t =>
+    `<span class="dp-tag" style="background:#334155;color:#94a3b8;">${t}</span>`
+  ).join("");
+
+  content.innerHTML = `
+    <h3>${d.title}</h3>
+    <div class="dp-subtitle">${tagsHTML}</div>
+    <div class="dp-section">
+      <div class="dp-section-title">File</div>
+      <span class="dp-file">${d.file}</span>
+    </div>
+    <div class="dp-section">
+      <div class="dp-section-title">How it works</div>
+      <div class="dp-text">${d.desc}</div>
+    </div>
+    <div class="dp-section">
+      <div class="dp-section-title">Code Reference</div>
+      <code class="dp-code">${d.code}</code>
+    </div>
+  `;
+  panel.classList.add("open");
+}
+
+function closePanel() {
+  document.getElementById("detail-panel").classList.remove("open");
+}
+
+// Close panel on outside click
+document.addEventListener("click", (e) => {
+  const panel = document.getElementById("detail-panel");
+  if (panel.classList.contains("open") && !panel.contains(e.target)) {
+    closePanel();
+  }
+});
 </script>
 </body>
 </html>
